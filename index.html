@@ -67,6 +67,49 @@ select option{background:#101a14;color:var(--txt)}
 .welcome span{color:var(--gold)}
 input[type=range]{width:100%;accent-color:var(--gold)}
 
+
+/* ---------- lobby (Free Fire style) ---------- */
+.lob{justify-content:space-between;align-items:stretch;overflow-y:auto;padding-top:max(10px,env(safe-area-inset-top,0px));padding-bottom:max(10px,env(safe-area-inset-bottom,0px));gap:8px}
+.lbTop{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.prof{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid rgba(242,182,50,.55);border-radius:40px 8px 8px 40px;padding:4px 16px 4px 4px;color:var(--txt);cursor:pointer;font:inherit;min-width:0}
+.av{width:46px;height:46px;border-radius:50%;border:3px solid var(--gold);display:flex;align-items:center;justify-content:center;font-family:var(--display);font-size:28px;color:#fff;text-shadow:0 1px 3px #000;flex:none}
+.pi{display:flex;flex-direction:column;align-items:flex-start;line-height:1.05;min-width:0}
+.pi b{font-family:var(--display);font-size:24px;letter-spacing:.04em;font-weight:600;max-width:34vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lv{font-size:12px;letter-spacing:.16em;color:var(--gold)}
+.xp{display:block;width:90px;height:5px;border-radius:3px;background:rgba(255,255,255,.18);margin-top:3px;overflow:hidden}
+.xp i{display:block;height:100%;width:0;background:var(--lagoon)}
+.lbTitle{flex:1;font-family:var(--display);font-weight:700;text-transform:uppercase;letter-spacing:.08em;font-size:clamp(22px,4vw,34px);line-height:.85;text-align:center;color:var(--gold);text-shadow:0 2px 0 rgba(120,20,10,.9),0 6px 14px rgba(0,0,0,.6)}
+.lbTitle small{display:block;font-size:.5em;letter-spacing:.34em;color:var(--kasavu)}
+.lbIcons{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.lbIcons{flex:none}.lib{white-space:nowrap;flex:none;font-family:var(--display);font-size:17px;letter-spacing:.06em;text-transform:uppercase;color:var(--txt);background:var(--panel);border:1px solid rgba(255,255,255,.25);border-radius:4px;padding:3px 10px 1px;cursor:pointer}
+#profPanel{display:none;position:absolute;left:max(16px,env(safe-area-inset-left,0px));top:calc(max(10px,env(safe-area-inset-top,0px)) + 62px);z-index:3;width:min(360px,calc(100vw - 32px));padding:14px 16px}
+#profPanel.on{display:block}
+.lbMain{display:flex;flex-direction:column;align-items:center;gap:10px;min-height:0}
+.mapRow{display:flex;gap:12px;overflow-x:auto;max-width:100%;padding:6px 4px 10px;scrollbar-width:none;touch-action:pan-x}
+.mapRow::-webkit-scrollbar{display:none}
+.mc{position:relative;flex:none;width:clamp(170px,27vw,270px);height:clamp(104px,32vh,190px);border-radius:6px;overflow:hidden;border:2px solid rgba(255,255,255,.2);cursor:pointer;background:#111;padding:0;color:var(--txt);text-align:left;font:inherit}
+.mc.on{border-color:var(--gold);box-shadow:0 0 0 2px rgba(0,0,0,.7),0 0 22px rgba(242,182,50,.55);transform:translateY(-3px)}
+.mc svg{position:absolute;inset:0;width:100%;height:100%}
+.mc .cap{position:absolute;left:0;right:0;bottom:0;padding:18px 10px 6px;background:linear-gradient(0deg,rgba(0,0,0,.85),rgba(0,0,0,0))}
+.mc .cap b{display:block;font-family:var(--display);font-size:clamp(20px,3vw,26px);letter-spacing:.05em;text-transform:uppercase;line-height:1}
+.mc .cap span{font-size:13px;color:var(--dim);letter-spacing:.08em}
+.mc .tag{position:absolute;top:8px;right:-30px;transform:rotate(35deg);background:var(--chili);color:#fff;font-family:var(--display);font-size:14px;letter-spacing:.1em;padding:1px 34px 0}
+.mc.lock svg{filter:grayscale(.75) brightness(.7)}
+.modeRow{display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:center}
+.seg{display:flex;border:1px solid rgba(255,255,255,.28);border-radius:4px;overflow:hidden;background:var(--panel)}
+.seg button{font-family:var(--display);font-size:20px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);background:none;border:0;padding:4px 16px 2px;cursor:pointer}
+.seg button.on{background:linear-gradient(180deg,#ffe29a,var(--gold));color:#1b1204}
+#dropSel{font-size:16px;padding:5px 10px;width:auto;max-width:44vw}
+.lbBot{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
+.lbBot .keys{flex:1;font-size:12px;max-width:52%}
+.goCol{display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex:none}
+.selTxt{font-family:var(--display);font-size:18px;letter-spacing:.1em;text-transform:uppercase;color:var(--kasavu);text-shadow:0 1px 4px #000;text-align:right}
+.goRow{display:flex;gap:8px}
+.goRow .btn{width:auto;padding:6px 18px 4px}
+.btn.go{font-size:34px;padding:6px 44px 4px;background:linear-gradient(180deg,#ffd75e,#f08a10);box-shadow:0 4px 0 #8a4a08,0 10px 22px rgba(0,0,0,.5)}
+@media (max-height:420px){.av{width:38px;height:38px;font-size:22px}.pi b{font-size:20px}.btn.go{font-size:28px;padding:4px 30px 2px}.lbBot .keys{display:none}.lib{font-size:15px}}
+@media (max-width:600px){.lbBot .keys{display:none}.lbBot{justify-content:center}.goCol{align-items:center;width:100%}.selTxt{text-align:center;font-size:16px}.pi b{max-width:26vw}.lbTop{flex-wrap:wrap}.lbTitle{order:3;flex-basis:100%}.lib{font-size:14px;padding:3px 7px 1px}.seg button{font-size:17px;padding:4px 10px 2px}.mc{width:150px;height:130px}}
+
 /* ---------- HUD ---------- */
 #hud{position:fixed;inset:0;z-index:10;display:none;pointer-events:none;font-family:var(--display)}
 body.playing #hud{display:block}
@@ -205,27 +248,31 @@ body.touch .fe{font-size:15px}
   </form>
 </div>
 
-<!-- ================= MENU ================= -->
-<div id="menu" class="scr shade">
-  <h1 class="logo" style="font-size:clamp(40px,8vw,84px);margin-bottom:14px">Battle<small style="font-size:.4em">Malabary</small></h1>
-  <div class="card col">
-    <div class="welcome">Welcome back, <span id="mName">Player</span></div>
-    <div class="stats">
-      <div><b id="sMatch">0</b><span>Matches</span></div>
-      <div><b id="sKill">0</b><span>Kills</span></div>
-      <div><b id="sHead">0</b><span>Headshots</span></div>
-      <div><b id="sWin">0</b><span>Wins</span></div>
+<!-- ================= MENU / LOBBY ================= -->
+<div id="menu" class="scr shade lob">
+  <div class="lbTop">
+    <button class="prof" id="profBtn" type="button" aria-label="Profile">
+      <span class="av" id="mAv">K</span>
+      <span class="pi"><b id="mName">Player</b><span class="lv">LV <i id="mLv">1</i></span><span class="xp"><i id="mXp"></i></span></span>
+    </button>
+    <div class="lbTitle">Battle<small>Malabary</small></div>
+    <div class="lbIcons"><button class="lib" id="bMusic" type="button">Music: on</button><button class="lib" id="bLogout" type="button">Switch account</button></div>
+  </div>
+  <div id="profPanel" class="card"><div class="stats">
+      <div><b id="sMatch">0</b><span>Matches</span></div><div><b id="sKill">0</b><span>Kills</span></div>
+      <div><b id="sHead">0</b><span>Headshots</span></div><div><b id="sWin">0</b><span>Wins</span></div></div>
+    <div class="stats" style="margin-top:10px;grid-template-columns:repeat(2,1fr)"><div><b id="sKd">0</b><span>K/D</span></div><div><b id="sBest">0</b><span>Best kills</span></div></div></div>
+  <div class="lbMain">
+    <div class="mapRow" id="mapRow"></div>
+    <div class="modeRow">
+      <div class="seg" id="modeSeg"><button type="button" data-m="off">Offline &middot; 30 players</button><button type="button" data-m="on">Online</button></div>
+      <div id="dzWrap"><select id="dropSel" aria-label="Drop zone"></select></div>
     </div>
-    <div><label class="f" for="dropSel">Drop zone</label><select id="dropSel"></select></div>
-    <button class="btn" id="bContinue">Continue match</button>
-    <button class="btn alt" id="bNew">New match</button>
-    <button class="btn" id="bOnline" style="background:linear-gradient(180deg,#9be7ff,#3aa7d6);box-shadow:0 4px 0 #1b5f80,0 10px 20px rgba(0,0,0,.4)">Play online</button>
-    <div class="row">
-      <button class="btn alt" id="bMusic" style="font-size:20px">Music: on</button>
-      <button class="btn alt" id="bLogout" style="font-size:20px">Switch account</button>
-    </div>
-    <div class="keys" id="keysPc"><b>PC</b> &nbsp;WASD move &middot; Shift sprint &middot; C crouch &middot; Space jump &middot; Mouse aim &amp; fire &middot; Right click scope &middot; R reload &middot; E pick up &middot; H medkit &middot; 1-5 guns &middot; M map &middot; Esc pause</div>
-    <div class="keys" id="keysMob"><b>Mobile</b> &nbsp;Left stick move &middot; drag right side to look &middot; FIRE button &middot; scope, jump, crouch, reload, heal, swap buttons</div>
+  </div>
+  <div class="lbBot">
+    <div class="keys" id="keysPc"><b>PC</b> WASD move &middot; Shift sprint &middot; C crouch &middot; Space jump &middot; Mouse fire &middot; Right click scope &middot; R reload &middot; E pick up &middot; H medkit &middot; 1-5 guns &middot; M map &middot; Esc pause</div>
+    <div class="keys" id="keysMob"><b>Mobile</b> Left stick move &middot; drag right side to look &middot; FIRE &middot; scope, jump, duck, reload, heal, swap</div>
+    <div class="goCol"><div class="selTxt" id="selTxt"></div><div class="goRow"><button class="btn alt" id="bContinue" type="button">Continue</button><button class="btn go" id="bStart" type="button">Start</button></div></div>
   </div>
 </div>
 
@@ -1834,19 +1881,58 @@ $('authForm').addEventListener('submit',async e=>{
   }
   DB.session=key;ACC=DB.accounts[key];dbSave();Aud.click();enterMenu();
 });
+const MAPS=[
+  {id:'kerala',name:'Kerala Open World',sub:'Battle Royale · 14 districts',ready:true},
+  {id:'arena5',name:'Tactical Arena',sub:'5v5 · Valorant-style',ready:false,tag:'SOON'},
+  {id:'more',name:'More maps',sub:'Hill station · Backwaters',ready:false,tag:'SOON'}
+];
+const MAPART={
+  kerala:'<svg viewBox="0 0 270 190" preserveAspectRatio="xMidYMid slice"><defs><linearGradient id="kg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1b1850"/><stop offset=".45" stop-color="#c0455a"/><stop offset=".75" stop-color="#ff9a4a"/></linearGradient></defs><rect width="270" height="190" fill="url(#kg)"/><circle cx="190" cy="104" r="22" fill="#fff0b8"/><path d="M0 120 Q50 85 100 112 T200 108 T270 118 V190 H0Z" fill="#4b2f55"/><rect y="130" width="270" height="60" fill="#1d6f78"/><rect y="130" width="270" height="6" fill="#ffc977" opacity=".5"/><g stroke="#0a0d17" stroke-width="4" fill="none" stroke-linecap="round"><path d="M40 190 Q44 120 52 80"/><path d="M52 80 Q30 66 12 80M52 80 Q70 62 92 78M52 80 Q50 58 56 46"/><path d="M230 190 Q226 130 218 94"/><path d="M218 94 Q240 80 260 94M218 94 Q200 76 180 92"/></g></svg>',
+  arena5:'<svg viewBox="0 0 270 190" preserveAspectRatio="xMidYMid slice"><rect width="270" height="190" fill="#0f1c2e"/><g stroke="#1f3a5a" stroke-width="1"><path d="M0 30H270M0 60H270M0 90H270M0 120H270M0 150H270M30 0V190M60 0V190M90 0V190M120 0V190M150 0V190M180 0V190M210 0V190M240 0V190"/></g><g fill="#1d3552" stroke="#3b6aa0" stroke-width="2"><rect x="20" y="30" width="60" height="40"/><rect x="190" y="30" width="60" height="40"/><rect x="105" y="75" width="60" height="38"/><rect x="20" y="120" width="60" height="40"/><rect x="190" y="120" width="60" height="40"/></g><g font-family="Teko,Arial" font-size="30" fill="#ff4655" text-anchor="middle"><text x="50" y="110">A</text><text x="220" y="110">B</text></g><circle cx="135" cy="150" r="8" fill="#4bd0c8"/></svg>',
+  more:'<svg viewBox="0 0 270 190" preserveAspectRatio="xMidYMid slice"><rect width="270" height="190" fill="#1c2a24"/><path d="M0 140 L60 70 L110 120 L170 50 L230 125 L270 95 V190 H0Z" fill="#2c4a3a"/><text x="135" y="112" font-family="Teko,Arial" font-size="64" fill="#f8dd93" text-anchor="middle" opacity=".8">?</text></svg>'
+};
+let selMap='kerala',selMode='off';
+function renderLobbyUI(){
+  const row=$('mapRow');
+  if(!row.children.length){
+    MAPS.forEach(m=>{const b=document.createElement('button');b.type='button';b.className='mc'+(m.ready?'':' lock');b.dataset.id=m.id;
+      b.innerHTML=MAPART[m.id||'more']+(m.tag?'<span class="tag">'+m.tag+'</span>':'')+'<span class="cap"><b>'+m.name+'</b><span>'+m.sub+'</span></span>';
+      b.onclick=()=>{Aud.click();if(!m.ready){$('selTxt').textContent=m.name+' - ini varunnu (coming soon)';clearTimeout(renderLobbyUI.t);renderLobbyUI.t=setTimeout(renderLobbyUI,2200);return;}selMap=m.id;renderLobbyUI();};
+      row.appendChild(b);});
+  }
+  [...row.children].forEach(b=>b.classList.toggle('on',b.dataset.id===selMap));
+  [...$('modeSeg').children].forEach(b=>b.classList.toggle('on',b.dataset.m===selMode));
+  $('dzWrap').style.display=selMode==='off'?'block':'none';
+  const mp=MAPS.find(m=>m.id===selMap);
+  $('selTxt').textContent=(selMode==='off'?'Offline':'Online')+' · '+mp.name;
+  $('bContinue').style.display=(selMode==='off'&&ACC&&ACC.save)?'block':'none';
+  $('bStart').textContent=selMode==='off'?(ACC&&ACC.save?'New match':'Start'):'Join online';
+}
+$('modeSeg').onclick=e=>{const b=e.target.closest('button');if(!b)return;Aud.click();selMode=b.dataset.m;try{DB.settings.mode=selMode;dbSave();}catch(x){}renderLobbyUI();};
+$('profBtn').onclick=()=>{Aud.click();$('profPanel').classList.toggle('on');};
+$('menu').addEventListener('click',e=>{if(!e.target.closest('#profBtn,#profPanel'))$('profPanel').classList.remove('on');});
+function fillProfile(){
+  const s=ACC.stats,xp=s.matches*2+s.kills+s.wins*8,lv=1+Math.floor(xp/12);
+  $('mAv').textContent=ACC.name[0].toUpperCase();$('mAv').style.background=ACC.color||'#b5231a';
+  $('mLv').textContent=lv;$('mXp').style.width=Math.round((xp%12)/12*100)+'%';
+  $('sKd').textContent=s.deaths?(s.kills/s.deaths).toFixed(2):s.kills;$('sBest').textContent=s.best||0;
+}
 function enterMenu(){
   setState('menu');Aud.setLevel(1);
   $('mName').textContent=ACC.name;const s=ACC.stats;$('sMatch').textContent=s.matches;$('sKill').textContent=s.kills;$('sHead').textContent=s.hs;$('sWin').textContent=s.wins;
+  fillProfile();$('profPanel').classList.remove('on');
   const sel=$('dropSel');if(!sel.options.length){sel.add(new Option('Random district',-1));DIS.forEach((d,i)=>sel.add(new Option(d.n+' - '+d.lmn,i)));}
   sel.value=DB.settings.drop;
-  const has=!!ACC.save;$('bContinue').style.display=has?'block':'none';$('bNew').textContent=has?'New match':'Play';$('bNew').className=has?'btn alt':'btn';
+  if(DB.settings.mode==='on'||DB.settings.mode==='off')selMode=DB.settings.mode;
+  renderLobbyUI();
   $('bMusic').textContent='Music: '+(DB.settings.music>0?'on':'off');
-  $('keysPc').style.display=touchMode?'none':'block';$('keysMob').style.display=touchMode?'block':'none';
+  {const wide=window.innerWidth>600&&window.innerHeight>420;$('keysPc').style.display=(!touchMode&&wide)?'block':'none';$('keysMob').style.display=(touchMode&&wide)?'block':'none';}
   artOn=true;requestAnimationFrame(artLoop);
 }
 $('dropSel').onchange=e=>{DB.settings.drop=+e.target.value;dbSave();};
 $('bContinue').onclick=()=>startMatch(true);
-$('bNew').onclick=()=>{ACC.save=null;startMatch(false);};
+function startOnline(){Aud.click();let sv='';try{sv=localStorage.getItem('bm_server')||'';}catch(e){}$('lbServer').value=sv;setState('lobby');netConnect();}
+$('bStart').onclick=()=>{if(selMode==='off'){ACC.save=null;startMatch(false);}else startOnline();};
 $('bMusic').onclick=()=>{DB.settings.music=DB.settings.music>0?0:.8;Aud.setLevel(Aud.level);dbSave();$('bMusic').textContent='Music: '+(DB.settings.music>0?'on':'off');};
 $('bLogout').onclick=()=>{DB.session=null;ACC=null;dbSave();showAuth();};
 $('tapBtn').onclick=()=>startLoading();
@@ -1987,14 +2073,13 @@ function netTick(dt){
     u.bag2.visible=a.bag===2;u.bag3.visible=a.bag>=3;
   }
 }
-$('bOnline').onclick=()=>{Aud.click();let sv='';try{sv=localStorage.getItem('bm_server')||'';}catch(e){}$('lbServer').value=sv;setState('lobby');netConnect();};
 $('lbRetry').onclick=()=>netConnect();
 $('lbBack').onclick=()=>{NET.leave();enterMenu();};
 function goFull(){
   if(!isTouchDev)return;
   try{const d=document.documentElement;if(!document.fullscreenElement&&d.requestFullscreen){d.requestFullscreen({navigationUI:'hide'}).then(()=>{try{screen.orientation.lock('landscape').catch(()=>{});}catch(e){}}).catch(()=>{});}}catch(e){}
 }
-for(const id of ['tapBtn','bNew','bContinue','bOnline','dAgain','wAgain','pResume','lbRetry'])$(id).addEventListener('click',goFull);
+for(const id of ['tapBtn','bStart','bContinue','dAgain','wAgain','pResume','lbRetry'])$(id).addEventListener('click',goFull);
 document.addEventListener('touchend',function f(){goFull();document.removeEventListener('touchend',f);},{once:true});
 /* ---------------------------- boot ---------------------------- */
 document.body.classList.toggle('touch',touchMode);
