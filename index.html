@@ -234,9 +234,7 @@ body.touch .fe{font-size:15px}
   <h1 class="logo" style="font-size:clamp(34px,7vw,70px);margin-bottom:12px">Online<small style="font-size:.4em">Battle Malabary</small></h1>
   <div class="card col">
     <div id="lbStatus" style="font-size:18px;color:var(--gold)">Connecting...</div>
-    <div id="lbList" style="min-height:60px;max-height:34vh;overflow:auto;font-size:17px;line-height:1.6"></div>
-    <div><label class="f" for="lbServer">Server address (leave empty if this page is hosted by your server)</label><input type="text" id="lbServer" placeholder="e.g. 192.168.1.5:3000 or my-game.onrender.com"></div>
-    <button class="btn" id="lbStart">Start now</button>
+        <div><label class="f" for="lbServer">Server address (leave empty if this page is hosted by your server)</label><input type="text" id="lbServer" placeholder="e.g. 192.168.1.5:3000 or my-game.onrender.com"></div>
     <button class="btn alt" id="lbRetry">Reconnect</button>
     <button class="btn alt" id="lbBack">Back to menu</button>
   </div>
@@ -980,11 +978,13 @@ function rollLoot(tier,r){
   const t=TABLE[tier];let sum=0;for(const e of t)sum+=e[2];let v=r()*sum;
   for(const e of t){v-=e[2];if(v<=0)return e;}return t[0];
 }
+const lootDefs=[];
 function initLoot(seed,looted){
   while(LOOT.length){const it=LOOT.pop();if(it.alive&&it.mesh){it.mesh.visible=false;lootPool.push(it.mesh);it.mesh=null;}it.alive=false;}
   const r=mulberry(seed),lset=new Set(looted||[]);
   lootSpots.forEach((s,i)=>{
     const e=rollLoot(s.tier,r),it={id:i,x:s.x,z:s.z,kind:e[0],wid:e[0]==='gun'?e[1]:null,lvl:e[0]==='bag'?e[1]:0,qty:e[0]==='med'?(r()<.3?2:1):1,dyn:false};
+    lootDefs[i]={id:i,x:it.x,z:it.z,kind:it.kind,wid:it.wid,lvl:it.lvl,qty:it.qty,dyn:false};
     if(lset.has(i))return;addLoot(it);
   });
 }
@@ -1862,18 +1862,22 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden){saveNow();
 window.addEventListener('pagehide',()=>saveNow());window.addEventListener('beforeunload',()=>saveNow());
 document.addEventListener('keydown',e=>{if(e.code==='Escape'&&state==='paused'&&!locked)resumeGame();else if(e.code==='Escape'&&mapOpen)toggleMap(false);});
 
-/* ---------------------------- online multiplayer ---------------------------- */
+/* ---------------------------- online multiplayer (endless, join any time, respawn in 5 s) ---------------------------- */
 let ON=false;const remotes=new Map(),remoteArr=[];
-const NET={ws:null,id:0,seq:0,sT:0,dn:0,cnt:null,min:2,list:[],lstate:'lobby',lastEnd:'',
+const NET={ws:null,id:0,seq:0,sT:0,pT:0,dn:0,rsT:0,
   send(o){if(this.ws&&this.ws.readyState===1)this.ws.send(JSON.stringify(o));},
-  leave(){ON=false;clearRemotes();const w=this.ws;this.ws=null;if(w){w.onclose=null;try{w.close();}catch(e){}}
-    $('dAgain').textContent='Play again';$('wAgain').textContent='Play again';},
-  toLobby(){if(document.exitPointerLock&&locked)document.exitPointerLock();setState('lobby');renderLobby();}
+  leave(){ON=false;clearRemotes();clearInterval(this.rsT);const w=this.ws;this.ws=null;if(w){w.onclose=null;try{w.close();}catch(e){}}
+    $('hAlive').parentNode.firstElementChild.textContent='ALIVE';},
+  toLobby(){if(document.exitPointerLock&&locked)document.exitPointerLock();setState('lobby');}
 };
 function clearRemotes(){for(const a of remoteArr){scene.remove(a.mesh);const i=actors.indexOf(a);if(i>=0)actors.splice(i,1);}remotes.clear();remoteArr.length=0;}
+function dropRemote(id){const a=remotes.get(id);if(!a)return;scene.remove(a.mesh);let i=actors.indexOf(a);if(i>=0)actors.splice(i,1);i=remoteArr.indexOf(a);if(i>=0)remoteArr.splice(i,1);remotes.delete(id);}
 function mkRemote(p){
-  const a={isRemote:true,id:p.id,name:p.name,shirt:p.shirt,lungi:p.lungi,skin:p.skin,x:0,y:0,z:0,tx:0,ty:0,tz:0,yaw:0,tyaw:0,hp:MAXHP,alive:true,crouch:false,r:.45,w:'pistol',bag:1,walk:0,deadT:0};
-  a.mesh=buildBotMesh(a);a.mesh.visible=false;a.got=false;remotes.set(p.id,a);remoteArr.push(a);actors.push(a);return a;
+  const a={isRemote:true,id:p.id,name:p.name,shirt:p.shirt,lungi:p.lungi,skin:p.skin,x:0,y:0,z:0,tx:0,ty:0,tz:0,yaw:0,tyaw:0,hp:p.hp||MAXHP,alive:true,crouch:false,r:.45,w:p.w||'pistol',bag:p.b||1,walk:0,deadT:0,got:false};
+  a.mesh=buildBotMesh(a);a.mesh.visible=false;remotes.set(p.id,a);remoteArr.push(a);actors.push(a);
+  if(p.alive===false){a.alive=false;a.deadT=99;}
+  else if(p.x||p.z){a.x=a.tx=p.x;a.y=a.ty=p.y;a.z=a.tz=p.z;a.yaw=a.tyaw=p.yaw||0;a.got=true;a.mesh.visible=true;}
+  return a;
 }
 const hashStr=s=>{let h=7;for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))>>>0;return h;};
 function netUrl(){
@@ -1890,36 +1894,28 @@ function netConnect(){
   NET.leave();
   const url=netUrl();
   if(!url){lbStatus('Type your server address below.');return;}
-  lbStatus('Connecting to '+url.replace(/^wss?:\/\//,'')+' ...');$('lbList').innerHTML='';
+  lbStatus('Connecting to '+url.replace(/^wss?:\/\//,'')+' ... (first time can take up to a minute)');
   let ws;try{ws=new WebSocket(url);}catch(e){lbStatus('This page is not allowed to open online connections. Open the game from your own server link (see hosting guide).');return;}
   NET.ws=ws;ON=true;let opened=false;
-  ws.onopen=()=>{opened=true;NET.send({t:'join',name:ACC.name,shirt:SHIRT[hashStr(ACC.name)%SHIRT.length],lungi:ACC.color||'#b5231a',skin:SKIN[hashStr(ACC.name+'s')%SKIN.length]});lbStatus('Connected. Waiting for players...');};
+  ws.onopen=()=>{opened=true;NET.send({t:'join',name:ACC.name,shirt:SHIRT[hashStr(ACC.name)%SHIRT.length],lungi:ACC.color||'#b5231a',skin:SKIN[hashStr(ACC.name+'s')%SKIN.length]});lbStatus('Joining...');};
   ws.onmessage=e=>{let m;try{m=JSON.parse(e.data);}catch(x){return;}netMsg(m);};
-  ws.onclose=()=>{if(NET.ws!==ws)return;NET.ws=null;ON=false;clearRemotes();
+  ws.onclose=()=>{if(NET.ws!==ws)return;NET.ws=null;ON=false;clearRemotes();clearInterval(NET.rsT);
     if(document.exitPointerLock&&locked)document.exitPointerLock();
-    if(state!=='menu'){setState('lobby');lbStatus(opened?'Disconnected from the server.':'Could not reach the server. Is it running? Check the address below.');$('lbList').innerHTML='';$('lbStart').style.display='none';}};
-}
-function renderLobby(){
-  const L=NET.list||[];
-  $('lbList').innerHTML=L.map(p=>'<div>'+(p.id===NET.id?'&#9733; ':'&#9679; ')+p.name+(p.inRound?' <span style="color:var(--dim)">(in round)</span>':'')+'</div>').join('');
-  let s;
-  if(!NET.ws||NET.ws.readyState!==1)return;
-  if(NET.lstate==='play')s='Round in progress. You join the next one.';
-  else if(L.length<NET.min)s='Waiting for players ('+L.length+'/'+NET.min+'). Share your server link!';
-  else s='Round starts in '+NET.cnt+'s';
-  lbStatus((NET.lastEnd?NET.lastEnd+'  ':'')+s);
-  $('lbStart').style.display=(NET.lstate==='lobby'&&L.length>=NET.min)?'block':'none';
+    if(state!=='menu'){setState('lobby');lbStatus(opened?'Disconnected from the server. Tap Reconnect to rejoin.':'Could not reach the server. Is it running? Check the address below.');}};
 }
 function netMsg(m){
   switch(m.t){
-    case 'welcome':NET.id=m.id;break;
+    case 'welcome':NET.id=m.id;netEnter(m);break;
     case 'full':lbStatus('Server is full. Try again in a minute.');break;
-    case 'lobby':NET.list=m.players;NET.cnt=m.count;NET.lstate=m.state;NET.min=m.min||2;if(state==='lobby')renderLobby();break;
-    case 'start':netStart(m);break;
-    case 'st':for(const e of m.p){if(e[0]===NET.id)continue;const a=remotes.get(e[0]);if(!a)continue;
+    case 'cnt':$('hAlive').textContent=m.n;break;
+    case 'join':if(m.p.id!==NET.id&&!remotes.has(m.p.id)){mkRemote(m.p);feed('<b>'+m.p.name+'</b> joined the battle','');}break;
+    case 'leave':{const a=remotes.get(m.id);if(a){dropRemote(m.id);feed('<b>'+m.name+'</b> left','');}break;}
+    case 'resp':{const a=remotes.get(m.id);if(a){a.alive=true;a.got=false;a.deadT=0;a.mesh.visible=false;a.mesh.rotation.x=0;a.mesh.position.y=0;a.hp=MAXHP;}break;}
+    case 'respawn':netRespawn(m.spawn);break;
+    case 'st':for(const e of m.p){if(e[0]===NET.id)continue;const a=remotes.get(e[0]);if(!a||!a.alive)continue;
       a.tx=e[1];a.ty=e[2];a.tz=e[3];a.tyaw=e[4];a.crouch=!!e[6];a.w=e[7];a.hp=e[8];a.bag=e[9];
       if(!a.got){a.got=true;a.x=a.tx;a.y=a.ty;a.z=a.tz;a.yaw=a.tyaw;a.mesh.visible=true;}}break;
-    case 'shot':{const a=remotes.get(m.id);if(!a||state==='lobby')break;tracer(m.x,m.y-.15,m.z,m.tx,m.ty,m.tz);
+    case 'shot':{const a=remotes.get(m.id);if(!a||state!=='play'&&state!=='paused')break;tracer(m.x,m.y-.15,m.z,m.tx,m.ty,m.tz);
       const d=Math.hypot(a.x-P.x,a.z-P.z);if(d<260)Aud.shot(m.wid,d,0);break;}
     case 'dmg':{
       if(m.id===NET.id){P.hp=m.hp;P.lastDmgT=0;if(m.hp>0){hurtFx(remotes.get(m.by));Aud.hurt();}if(P.heal>0){P.heal=0;$('heal').style.display='none';}updateVitals();}
@@ -1927,68 +1923,61 @@ function netMsg(m){
     case 'heal':if(m.id!==NET.id){const a=remotes.get(m.id);if(a)a.hp=m.hp;}break;
     case 'kill':netKill(m);break;
     case 'pick':{const it=LOOT.find(l=>l.alive&&l.id===m.id);if(it){if(!it.dyn)looted.add(it.id);removeLoot(it);}break;}
+    case 'lootback':{const d=lootDefs[m.id];if(d&&!LOOT.some(l=>l.alive&&l.id===m.id)){looted.delete(m.id);addLoot(Object.assign({},d));}break;}
     case 'drop':{const d=m.it;if(LOOT.some(l=>l.alive&&l.id===d.id))break;addLoot({id:d.id,kind:d.kind,wid:d.wid,lvl:d.lvl,qty:d.qty,x:d.x,z:d.z,dyn:true});break;}
-    case 'end':netEnd(m);break;
   }
 }
 function netDrop(it){it.id='d'+NET.id+'_'+(NET.dn++);NET.send({t:'drop',it:{id:it.id,kind:it.kind,wid:it.wid,lvl:it.lvl,qty:it.qty,x:it.x,z:it.z}});}
-function netStart(m){
+function netEnter(m){
   Aud.init();Aud.resume();Aud.start();
-  const me=m.players.find(p=>p.id===NET.id);if(!me)return;
-  clearRemotes();matchSeed=m.seed;looted.clear();initLoot(matchSeed,[]);
+  clearRemotes();matchSeed=m.seed;looted.clear();m.looted.forEach(i=>looted.add(i));initLoot(matchSeed,m.looted);
+  for(const d of m.drops)addLoot({id:d.id,kind:d.kind,wid:d.wid,lvl:d.lvl,qty:d.qty,x:d.x,z:d.z,dyn:true});
   for(const b of bots){b.alive=false;b.deadT=99;b.mesh.visible=false;}
-  for(const p of m.players)if(p.id!==NET.id)mkRemote(p);
-  giveStart();spawnPlayer((m.base+me.slot)%DIS.length,mulberry(matchSeed+5+me.slot*17));matchTime=0;ACC.stats.matches++;dbSave();
-  aliveN=m.players.length;NET.lastEnd='';
-  camera.rotation.set(0,0,0);setViewGun(curW().id);updateVitals();updateAmmo();$('hAlive').textContent=aliveN;$('hKills').textContent=0;
+  for(const p of m.players)mkRemote(p);
+  giveStart();spawnPlayer(m.spawn.di,mulberry(m.spawn.rs));matchTime=0;ACC.stats.matches++;dbSave();
+  P.vx=0;P.vz=0;camera.rotation.set(0,0,0);setViewGun(curW().id);updateVitals();updateAmmo();
+  $('hAlive').parentNode.firstElementChild.textContent='PLAYERS';$('hAlive').textContent=m.n;$('hKills').textContent=0;
   lastLoc=-1;$('feed').innerHTML='';
-  $('dAgain').textContent='Back to lobby';$('wAgain').textContent='Back to lobby';
   setState('play');Aud.setLevel(.38);
   $('hint').style.opacity=1;$('hint').style.display=touchMode?'none':'block';
-  $('hint').textContent='ONLINE · last player standing wins · red dots on the map are real players';
+  $('hint').textContent='ONLINE · endless battle · die and you respawn in 5 s · red dots on the map are real players';
   setTimeout(()=>{$('hint').style.opacity=0;},9000);
-  note('ROUND START',m.players.length+' players · last one standing wins','info');
+  note('YOU ARE IN',(m.players.length+1)+' players online','info');
   requestLock();
+}
+function netRespawn(sp){
+  clearInterval(NET.rsT);const k=P.kills,h=P.hs;
+  giveStart();P.kills=k;P.hs=h;spawnPlayer(sp.di,mulberry(sp.rs));P.vx=0;P.vz=0;P.y=0;
+  camera.rotation.set(0,0,0);setViewGun(curW().id);updateVitals();updateAmmo();$('hKills').textContent=P.kills;
+  $('heal').style.display='none';lastLoc=-1;note('RESPAWNED','Pizhachu varu! 3s protection','info');
 }
 function netKill(m){
   const victim=m.id===NET.id?P:remotes.get(m.id),killer=m.by===NET.id?P:remotes.get(m.by);
-  const vn=victim===P?'You':(victim?victim.name:'?');
-  if(m.left){feed('<b>'+vn+'</b> left the match','');}
-  else{const kn=killer===P?'You':(killer?killer.name:'?'),wn=W[m.wid]?W[m.wid].name:'';
-    feed('<b>'+kn+'</b> &#9658; '+vn+' <span style="color:var(--dim)">'+wn+'</span>'+(m.head?' <span class="hs">HEADSHOT</span>':''),killer===P?'me':victim===P?'you':'');}
+  const vn=victim===P?'You':(victim?victim.name:'?'),kn=killer===P?'You':(killer?killer.name:'?'),wn=W[m.wid]?W[m.wid].name:'';
+  feed('<b>'+kn+'</b> &#9658; '+vn+' <span style="color:var(--dim)">'+wn+'</span>'+(m.head?' <span class="hs">HEADSHOT</span>':''),killer===P?'me':victim===P?'you':'');
   if(victim&&victim!==P){victim.alive=false;victim.deadT=0;}
-  $('hAlive').textContent=m.n;
-  if(killer===P&&!m.left){P.kills++;ACC.stats.kills++;if(m.head){P.hs++;ACC.stats.hs++;}dbSave();
+  if(killer===P){P.kills++;ACC.stats.kills++;if(m.head){P.hs++;ACC.stats.hs++;}dbSave();
     const k=pickR(m.head?KILL_HEAD:KILL_BODY);note(k[0],k[1]+' · '+vn,m.head?'head':'body');Aud.kill();$('hKills').textContent=P.kills;}
   if(victim===P)netDie(killer,m);
 }
 function netDie(killer,m){
-  if(!P.alive)return;P.alive=false;inp.fire=false;Aud.die();ACC.stats.deaths++;dbSave();
+  if(!P.alive)return;P.alive=false;inp.fire=false;inp.ads=false;Aud.die();ACC.stats.deaths++;dbSave();
+  P.heal=0;P.reload=0;$('heal').style.display='none';
   for(const w of P.weapons)dropWeapon(w);
   if(P.med>0){const it=addLoot({kind:'med',wid:null,x:P.x+.8,z:P.z-.6,dyn:true,qty:P.med,lvl:0});netDrop(it);}
   if(P.bag>1){const it=addLoot({kind:'bag',wid:null,lvl:P.bag,x:P.x-.8,z:P.z+.6,dyn:true,qty:1});netDrop(it);}
-  $('dBy').textContent='Eliminated by '+(killer&&killer.name?killer.name:'?')+' · '+(W[m.wid]?W[m.wid].name:'');
-  $('dKills').textContent=P.kills;$('dHs').textContent=P.hs;$('dTime').textContent=fmtT(matchTime);
-  setTimeout(()=>{if(state==='play'||state==='paused'){if(document.exitPointerLock&&locked)document.exitPointerLock();setState('death');}},1600);
-}
-function netEnd(m){
-  NET.lastEnd='Last round: '+(m.winner?m.name+' won.':'no winner.');
-  if(m.winner===NET.id&&P.alive){
-    Aud.win();ACC.stats.wins++;ACC.stats.best=Math.max(ACC.stats.best||0,P.kills);dbSave();
-    $('wKills').textContent=P.kills;$('wHs').textContent=P.hs;$('wTime').textContent=fmtT(matchTime);
-    if(document.exitPointerLock&&locked)document.exitPointerLock();setState('win');
-  }else if(P.alive&&(state==='play'||state==='paused')){
-    P.alive=false;inp.fire=false;$('dBy').textContent='Round over · '+(m.winner?m.name+' won':'time up');
-    $('dKills').textContent=P.kills;$('dHs').textContent=P.hs;$('dTime').textContent=fmtT(matchTime);
-    if(document.exitPointerLock&&locked)document.exitPointerLock();setState('death');
-  }else if(state==='death'){$('dBy').textContent+=' · '+(m.winner?m.name+' won the round':'');}
+  let n=5;const by=killer&&killer.name?killer.name:'?';
+  const tick=()=>{if(n>0){note('ELIMINATED','by '+by+' · respawn in '+n,'head');n--;}};tick();
+  clearInterval(NET.rsT);NET.rsT=setInterval(tick,1000);
 }
 function netTick(dt){
-  NET.sT+=dt;
+  NET.sT+=dt;NET.pT+=dt;
+  if(NET.pT>8){NET.pT=0;NET.send({t:'ping'});}
   if(NET.sT>=.066&&P.alive){NET.sT=0;const w=curW();NET.send({t:'s',x:+P.x.toFixed(2),y:+P.y.toFixed(2),z:+P.z.toFixed(2),yaw:+P.yaw.toFixed(3),pitch:+P.pitch.toFixed(2),c:P.crouch?1:0,w:w?w.id:'pistol',b:P.bag});}
   for(const a of remoteArr){
     const m=a.mesh,u=m.userData;
     if(!a.alive){a.deadT+=dt;const k=Math.min(1,a.deadT*3);m.rotation.x=-k*1.5;m.position.y=k*.2;if(a.deadT>20)m.visible=false;continue;}
+    if(!a.got)continue;
     const f=Math.min(1,dt*14),ox=a.x,oz=a.z;
     a.x+=(a.tx-a.x)*f;a.y+=(a.ty-a.y)*f;a.z+=(a.tz-a.z)*f;
     let d=a.tyaw-a.yaw;d=Math.atan2(Math.sin(d),Math.cos(d));a.yaw+=d*f;
@@ -2001,8 +1990,6 @@ function netTick(dt){
 $('bOnline').onclick=()=>{Aud.click();let sv='';try{sv=localStorage.getItem('bm_server')||'';}catch(e){}$('lbServer').value=sv;setState('lobby');netConnect();};
 $('lbRetry').onclick=()=>netConnect();
 $('lbBack').onclick=()=>{NET.leave();enterMenu();};
-$('lbStart').onclick=()=>NET.send({t:'start'});
-
 function goFull(){
   if(!isTouchDev)return;
   try{const d=document.documentElement;if(!document.fullscreenElement&&d.requestFullscreen){d.requestFullscreen({navigationUI:'hide'}).then(()=>{try{screen.orientation.lock('landscape').catch(()=>{});}catch(e){}}).catch(()=>{});}}catch(e){}
