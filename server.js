@@ -17,7 +17,9 @@ const PROTECT_MS = 3000;     // spawn protection after (re)spawn
 const LOOT_RESPAWN_MS = 120000;  // map loot comes back after this
 const DROP_LIFE_MS = 90000;      // dropped items disappear after this
 const MAXHP = 200;
-const NDIS = 14;             // districts on the map
+const NDIS = 14;
+const MIME = { '.glb': 'model/gltf-binary', '.js': 'application/javascript; charset=utf-8' };
+const CHARS = ['astra', 'brimstone', 'cypher', 'deadlock', 'harbor', 'iso', 'killjoy', 'neon', 'omen', 'skye', 'survivor', 'viper', 'vyse'];             // districts on the map
 
 // must match the client's weapon table
 const W = {
@@ -39,6 +41,18 @@ const server = http.createServer((req, res) => {
     fs.readFile(path.join(__dirname, 'index.html'), (err, buf) => {
       if (err) { res.writeHead(500); return res.end('index.html missing next to server.js'); }
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-cache' });
+      res.end(buf);
+    });
+    return;
+  }
+  if (url.startsWith('/models/') || url.startsWith('/vendor/')) {
+    const dir = url.startsWith('/models/') ? 'models' : 'vendor';
+    const name = path.basename(url);
+    const ext = path.extname(name);
+    if (!/^[A-Za-z0-9_.-]+$/.test(name) || name[0] === '.' || !MIME[ext]) { res.writeHead(404); return res.end('Not found'); }
+    fs.readFile(path.join(__dirname, dir, name), (err, buf) => {
+      if (err) { res.writeHead(404); return res.end('Not found'); }
+      res.writeHead(200, { 'content-type': MIME[ext], 'cache-control': 'public, max-age=86400' });
       res.end(buf);
     });
     return;
@@ -106,7 +120,7 @@ function bcast(obj, pred) {
   const s = JSON.stringify(obj);
   for (const p of players.values()) if (!pred || pred(p)) p.ws.send(s);
 }
-const full = p => ({ id: p.id, name: p.name, shirt: p.shirt, lungi: p.lungi, skin: p.skin, x: p.x, y: p.y, z: p.z, yaw: p.yaw, alive: p.alive, hp: p.hp, w: p.w, b: p.b });
+const full = p => ({ id: p.id, name: p.name, ch: p.ch, shirt: p.shirt, lungi: p.lungi, skin: p.skin, x: p.x, y: p.y, z: p.z, yaw: p.yaw, alive: p.alive, hp: p.hp, w: p.w, b: p.b });
 function spawn(p) {
   p.alive = true; p.hp = MAXHP; p.protect = now() + PROTECT_MS; p.w = 'pistol'; p.b = 1; p.c = 0; p.q = -1; p.tok = {}; p.lastTok = {};
   return { di: (Math.random() * NDIS) | 0, rs: (Math.random() * 1e9) | 0 };
@@ -122,7 +136,7 @@ function onConnect(ws) {
       if (m.t !== 'join') return;
       if (players.size >= MAX_PLAYERS) { ws.send(JSON.stringify({ t: 'full' })); ws.close(); return; }
       p = {
-        id: nextId++, ws, name: clean(m.name), shirt: hexc(m.shirt), lungi: hexc(m.lungi), skin: hexc(m.skin),
+        id: nextId++, ws, name: clean(m.name), ch: CHARS.includes(m.ch) ? m.ch : '', shirt: hexc(m.shirt), lungi: hexc(m.lungi), skin: hexc(m.skin),
         alive: true, hp: MAXHP, x: 0, y: 0, z: 0, yaw: 0, pitch: 0, c: 0, w: 'pistol', b: 1, protect: 0,
         kills: 0, hs: 0, tok: {}, lastTok: {}, q: -1, hits: 0, lastHeal: 0, lastMsg: now()
       };

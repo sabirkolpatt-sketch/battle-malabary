@@ -3,7 +3,15 @@
   "version": "1.0.0",
   "description": "Battle Malabary - Kerala 3D battle royale with online multiplayer",
   "main": "server.js",
-  "scripts": { "start": "node server.js" },
-  "engines": { "node": ">=16" },
-  "license": "MIT"
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=16"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@gltf-transform/cli": "^4.5.1",
+    "sharp": "^0.35.5"
+  }
 }
