@@ -1925,7 +1925,39 @@ const Chars={
     const holder=new THREE.Group();holder.rotation.y=c?c.rot:0;holder.add(pivot);
     const root=new THREE.Group();root.add(holder);return root;
   },
-  clone(root){return THREE.SkeletonUtils.clone(root);}
+  clone(root){return THREE.SkeletonUtils.clone(root);},
+  rig(hold){
+    const all=[];hold.traverse(o=>{if(o.isBone)all.push(o);});
+    const hipRe=/^[LR]_Hip_\d+$|^leg_(left|right)_thigh_\d+$/,kneeRe=/^[LR]_Knee_\d+$|^leg_(left|right)_knee_\d+$/;
+    const hipsB=all.filter(b=>hipRe.test(b.name)),kneesB=all.filter(b=>kneeRe.test(b.name));
+    if(hipsB.length!==2||kneesB.length!==2)return null;
+    hold.parent.updateMatrixWorld(true);hold.updateMatrixWorld(true);
+    const Hq=new THREE.Quaternion();hold.getWorldQuaternion(Hq);
+    const axisW=new THREE.Vector3(1,0,0).applyQuaternion(Hq);
+    const isL=b=>/^L_|_left_/.test(b.name);
+    const mk=b=>{const pq=new THREE.Quaternion();b.parent.getWorldQuaternion(pq);return {b,rest:b.quaternion.clone(),ax:axisW.clone().applyQuaternion(pq.invert()),left:isL(b),sign:1};};
+    const H=hipsB.map(mk),K=kneesB.map(mk);
+    const apply=(e,a)=>{e.b.quaternion.copy(e.rest).premultiply(new THREE.Quaternion().setFromAxisAngle(e.ax,a));};
+    const wp=o=>{const v=new THREE.Vector3();o.getWorldPosition(v);return hold.worldToLocal(v);};
+    // work out which rotation direction swings the leg forward (-Z) / bends the knee back
+    const lowest=b=>{let best=null,y=1e9;b.traverse(o=>{if(o.isBone){o.updateMatrixWorld(true);const p=wp(o);if(p.y<y){y=p.y;best=o;}}});return best;};
+    for(const e of H){
+      const knee=K.find(k=>k.left===e.left);if(!knee)return null;
+      e.b.updateMatrixWorld(true);const p0=wp(knee.b);apply(e,.4);e.b.updateMatrixWorld(true);const p1=wp(knee.b);apply(e,0);e.b.updateMatrixWorld(true);
+      e.sign=(p1.z-p0.z)<0?1:-1;
+    }
+    for(const e of K){
+      const foot=lowest(e.b);if(!foot||foot===e.b)return null;
+      e.b.updateMatrixWorld(true);const p0=wp(foot);apply(e,.5);e.b.updateMatrixWorld(true);const p1=wp(foot);apply(e,0);e.b.updateMatrixWorld(true);
+      e.sign=(p1.z-p0.z)>0?1:-1;
+    }
+    return {
+      update(phase,amt){
+        for(const e of H){const ph=phase+(e.left?0:Math.PI);apply(e,e.sign*.38*amt*Math.sin(ph));}
+        for(const e of K){const ph=phase+(e.left?0:Math.PI);apply(e,e.sign*.7*amt*Math.max(0,Math.cos(ph)));}
+      }
+    };
+  },
 };
 function setRemoteGun(a){
   const u=a.mesh.userData;if(!u.gunHold)return;a.gw=a.w;
@@ -1937,10 +1969,10 @@ function buildCharMesh(b){
   const legL=new THREE.Object3D(),legR=new THREE.Object3D(),bag2=new THREE.Object3D(),bag3=new THREE.Object3D();
   const np=nameplate(b.name,'#ffd9a0');g.add(np,legL,legR,bag2,bag3);
   const gunHold=new THREE.Group();gunHold.position.set(.3,1.1,-.3);g.add(gunHold);
-  g.userData={legL,legR,np,bag2,bag3,gunHold};scene.add(g);
+  g.userData={legL,legR,np,bag2,bag3,gunHold,hold};scene.add(g);
   const hold=new THREE.Group();g.add(hold);
   const fallback=()=>{const sk=mat(b.skin),t=new THREE.Mesh(botGeo.torso,mat(b.shirt)),hd=new THREE.Mesh(botGeo.head,sk),lg=new THREE.Mesh(botGeo.lungi,mat(b.lungi));t.position.y=1.3;hd.position.y=1.68;lg.position.y=.62;hold.add(t,hd,lg);};
-  Chars.load(b.ch).then(root=>{hold.add(Chars.clone(root));}).catch(fallback);
+  Chars.load(b.ch).then(root=>{hold.add(Chars.clone(root));try{g.userData.rig=Chars.rig(hold);}catch(e){g.userData.rig=null;}}).catch(fallback);
   return g;
 }
 /* ---- character select screen ---- */
@@ -2215,6 +2247,7 @@ function netTick(dt){
     m.position.set(a.x,a.y,a.z);m.rotation.set(0,a.yaw,0);m.scale.y=a.crouch?.8:1;
     u.bag2.visible=a.bag===2;u.bag3.visible=a.bag>=3;
     if(u.gunHold&&a.gw!==a.w)setRemoteGun(a);
+    {const amt=Math.min(1,spd/4.5);if(u.rig)u.rig.update(a.walk,amt);if(u.hold)u.hold.position.y=Math.abs(Math.sin(a.walk))*.04*amt;}
   }
 }
 $('lbRetry').onclick=()=>netConnect();
