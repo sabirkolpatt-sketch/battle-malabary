@@ -2,7 +2,8 @@
  * No dependencies. Run:  node server.js     (Node 16+)
  * Serves index.html (the game) and a WebSocket endpoint on the same port.
  * Env: PORT (default 3000), MAX_PLAYERS (default 16)
- * Endless free-for-all: join any time, respawn 5 s after dying.
+ * Two online modes: 'br' endless battle royale (join any time, respawn in 5 s) and
+ * 'arena' 5v5 tactical rounds (random map every round, first to 4 rounds).
  */
 'use strict';
 const http = require('http');
@@ -17,9 +18,7 @@ const PROTECT_MS = 3000;     // spawn protection after (re)spawn
 const LOOT_RESPAWN_MS = 120000;  // map loot comes back after this
 const DROP_LIFE_MS = 90000;      // dropped items disappear after this
 const MAXHP = 200;
-const NDIS = 14;
-const MIME = { '.glb': 'model/gltf-binary', '.js': 'application/javascript; charset=utf-8' };
-const CHARS = ['astra', 'brimstone', 'cypher', 'deadlock', 'harbor', 'iso', 'killjoy', 'neon', 'omen', 'skye', 'survivor', 'viper', 'vyse'];             // districts on the map
+const NDIS = 14;             // districts on the map
 
 // must match the client's weapon table
 const W = {
@@ -35,24 +34,12 @@ const server = http.createServer((req, res) => {
   const url = (req.url || '/').split('?')[0];
   if (url === '/health' || url === '/status') {
     res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' });
-    return res.end(JSON.stringify({ ok: true, players: players.size }));
+    return res.end(JSON.stringify({ ok: true, br: rooms.br.players.size, arena: rooms.arena.players.size }));
   }
   if (url === '/' || url === '/index.html') {
     fs.readFile(path.join(__dirname, 'index.html'), (err, buf) => {
       if (err) { res.writeHead(500); return res.end('index.html missing next to server.js'); }
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-cache' });
-      res.end(buf);
-    });
-    return;
-  }
-  if (url.startsWith('/models/') || url.startsWith('/vendor/')) {
-    const dir = url.startsWith('/models/') ? 'models' : 'vendor';
-    const name = path.basename(url);
-    const ext = path.extname(name);
-    if (!/^[A-Za-z0-9_.-]+$/.test(name) || name[0] === '.' || !MIME[ext]) { res.writeHead(404); return res.end('Not found'); }
-    fs.readFile(path.join(__dirname, dir, name), (err, buf) => {
-      if (err) { res.writeHead(404); return res.end('Not found'); }
-      res.writeHead(200, { 'content-type': MIME[ext], 'cache-control': 'public, max-age=86400' });
       res.end(buf);
     });
     return;
@@ -107,25 +94,276 @@ class WS {
   finish() { if (!this.open) return; this.open = false; try { this.socket.destroy(); } catch (e) {} if (this.onclose) this.onclose(); }
 }
 
-/* ------------------------------ game ------------------------------ */
-const players = new Map();       // id -> player
-const world = { seed: ((Math.random() * 1e9) | 0) + 1, looted: new Map(), drops: new Map() };
-let nextId = 1;
+/* ------------------------------ game rooms ------------------------------ */
 const now = () => Date.now();
 const clean = s => String(s || 'Player').replace(/[^A-Za-z0-9_ ]/g, '').slice(0, 14) || 'Player';
 const hexc = s => /^#[0-9a-fA-F]{6}$/.test(s) ? s : '#b5231a';
 const num = (v, lo, hi, d) => (typeof v === 'number' && isFinite(v)) ? Math.max(lo, Math.min(hi, v)) : d;
+const rnd = n => (Math.random() * n) | 0;
+let nextId = 1;
 
-function bcast(obj, pred) {
-  const s = JSON.stringify(obj);
-  for (const p of players.values()) if (!pred || pred(p)) p.ws.send(s);
+// arena rules
+const HALF = 3, WINS = 4, FREEZE = 6, LIVE = 100, ENDWAIT = 5, STARTDELAY = 5, MAXTEAM = 5;
+const LOADOUT = ['smg', 'smg', 'ar', 'ar', 'ar', 'sg', 'sn'];
+
+class Room {
+  constructor(kind) {
+    this.kind = kind; this.players = new Map();
+    this.world = { seed: rnd(1e9) + 1, looted: new Map(), drops: new Map() };      // br
+    this.A = { state: 'wait', round: 0, scores: [0, 0], seed: rnd(1e9) + 1, t0: 0, atk: 0, startT: null, ending: false };   // arena
+  }
+  bcast(obj, pred) { const s = JSON.stringify(obj); for (const p of this.players.values()) if (!pred || pred(p)) p.ws.send(s); }
+  full(p) { return { id: p.id, name: p.name, shirt: p.shirt, lungi: p.lungi, skin: p.skin, x: p.x, y: p.y, z: p.z, yaw: p.yaw, alive: p.alive, hp: p.hp, w: p.w, b: p.b, team: p.team }; }
+  spawn(p) {
+    p.alive = true; p.hp = MAXHP; p.protect = now() + PROTECT_MS; p.w = 'pistol'; p.b = 1; p.c = 0; p.q = -1; p.tok = {}; p.lastTok = {};
+    return { di: rnd(NDIS), rs: rnd(1e9) };
+  }
+  sendCount() { this.bcast({ t: 'cnt', n: this.players.size }); }
+  teamCount(t) { let n = 0; for (const p of this.players.values()) if (p.team === t) n++; return n; }
+
+  join(ws, m) {
+    if (this.players.size >= (this.kind === 'arena' ? MAXTEAM * 2 : MAX_PLAYERS)) { ws.send(JSON.stringify({ t: 'full' })); ws.close(); return null; }
+    const p = {
+      id: nextId++, ws, room: this, name: clean(m.name), shirt: hexc(m.shirt), lungi: hexc(m.lungi), skin: hexc(m.skin),
+      alive: true, hp: MAXHP, x: 0, y: 0, z: 0, yaw: 0, pitch: 0, c: 0, w: 'pistol', b: 1, protect: 0, team: 0, inRound: false,
+      kills: 0, hs: 0, tok: {}, lastTok: {}, q: -1, hits: 0, lastHeal: 0, lastMsg: now()
+    };
+    const others = [...this.players.values()].map(q => this.full(q));
+    if (this.kind === 'arena') {
+      const t0 = this.teamCount(0), t1 = this.teamCount(1);
+      if (t0 >= MAXTEAM && t1 >= MAXTEAM) { ws.send(JSON.stringify({ t: 'full' })); ws.close(); return null; }
+      p.team = t0 <= t1 ? 0 : 1; p.alive = this.A.state === 'wait';
+      this.players.set(p.id, p);
+      ws.send(JSON.stringify({ t: 'welcome', mode: 'arena', id: p.id, team: p.team, seed: this.A.seed, phase: this.A.state, round: this.A.round, atkTeam: this.A.atk, scores: this.A.scores, players: others, n: this.players.size }));
+      this.bcast({ t: 'join', p: this.full(p) }, q => q !== p);
+      this.sendCount(); this.arCheck();
+      return p;
+    }
+    const sp = this.spawn(p);
+    this.players.set(p.id, p);
+    ws.send(JSON.stringify({ t: 'welcome', mode: 'br', id: p.id, seed: this.world.seed, spawn: sp, looted: [...this.world.looted.keys()], drops: [...this.world.drops.values()].map(d => d.it), players: others, n: this.players.size }));
+    this.bcast({ t: 'join', p: this.full(p) }, q => q !== p);
+    this.sendCount();
+    return p;
+  }
+  leave(p) {
+    if (!this.players.has(p.id)) return;
+    this.players.delete(p.id);
+    this.bcast({ t: 'leave', id: p.id, name: p.name });
+    this.sendCount();
+    if (this.kind === 'arena') {
+      if (this.A.state === 'live' && p.inRound && p.alive) { this.bcast({ t: 'kill', id: p.id, by: 0, head: false, wid: '', left: true }); this.arCheckEnd(); }
+      this.arCheck();
+    }
+  }
+
+  handle(p, m) {
+    const ar = this.kind === 'arena';
+    switch (m.t) {
+      case 's': {
+        if (!p.alive) return;
+        p.x = num(m.x, -500, 6000, p.x); p.y = num(m.y, -5, 60, p.y); p.z = num(m.z, -500, 4000, p.z);
+        p.yaw = num(m.yaw, -1e4, 1e4, p.yaw); p.pitch = num(m.pitch, -2, 2, p.pitch);
+        p.c = m.c ? 1 : 0; if (W[m.w]) p.w = m.w; p.b = num(m.b, 1, 3, 1) | 0; break;
+      }
+      case 'shot': {
+        if (!p.alive || !W[m.wid]) return;
+        if (ar && this.A.state !== 'live') return;
+        this.bcast({ t: 'shot', id: p.id, wid: m.wid, x: num(m.x, -1e4, 1e4, 0), y: num(m.y, -50, 500, 0), z: num(m.z, -1e4, 1e4, 0), tx: num(m.tx, -1e4, 1e4, 0), ty: num(m.ty, -50, 500, 0), tz: num(m.tz, -1e4, 1e4, 0) }, q => q !== p);
+        break;
+      }
+      case 'hit': {
+        if (!p.alive) return;
+        if (ar && (this.A.state !== 'live' || !p.inRound)) return;
+        const tg = this.players.get(m.id | 0); if (!tg || tg === p || !tg.alive || now() < tg.protect) return;
+        if (ar && (tg.team === p.team || !tg.inRound)) return;
+        const def = W[m.wid]; if (!def) return;
+        const tn = now();
+        if (m.q !== p.q) {
+          const last = p.lastTok[m.wid] || tn;
+          p.tok[m.wid] = Math.min(3, (p.tok[m.wid] == null ? 3 : p.tok[m.wid]) + (tn - last) / (def.rate * 1000 * .9));
+          p.lastTok[m.wid] = tn;
+          if (p.tok[m.wid] < 1) return;
+          p.tok[m.wid] -= 1; p.q = m.q; p.hits = 0;
+        }
+        if (++p.hits > def.pel) return;
+        const d = Math.hypot(p.x - tg.x, p.z - tg.z);
+        if (d > def.range + 20) return;
+        const head = !!m.head;
+        const fall = m.wid === 'sn' ? 1 : 1 - .4 * Math.min(1, d / def.range);
+        const dmg = Math.max(1, Math.round(def.dmg * (head ? def.head : 1) * fall));
+        tg.hp -= dmg;
+        if (tg.hp > 0) { this.bcast({ t: 'dmg', id: tg.id, hp: tg.hp, by: p.id, head, wid: m.wid }); return; }
+        tg.hp = 0; tg.alive = false; p.kills++; if (head) p.hs++;
+        this.bcast({ t: 'dmg', id: tg.id, hp: 0, by: p.id, head, wid: m.wid });
+        this.bcast({ t: 'kill', id: tg.id, by: p.id, head, wid: m.wid });
+        if (ar) { this.arCheckEnd(); break; }
+        setTimeout(() => {      // br: respawn after 5 seconds
+          if (!this.players.has(tg.id)) return;
+          const sp = this.spawn(tg);
+          tg.ws.send(JSON.stringify({ t: 'respawn', spawn: sp }));
+          this.bcast({ t: 'resp', id: tg.id }, q => q !== tg);
+        }, RESPAWN_MS);
+        break;
+      }
+      case 'heal': {
+        if (!p.alive) return;
+        if (now() - p.lastHeal < 2000) return;
+        p.lastHeal = now(); p.hp = Math.min(MAXHP, p.hp + 80);
+        this.bcast({ t: 'heal', id: p.id, hp: p.hp }); break;
+      }
+      case 'pick': {
+        if (ar) return;
+        const id = m.id, w = this.world;
+        if (typeof id === 'number') {
+          if (w.looted.has(id)) return;
+          w.looted.set(id, now());
+          setTimeout(() => { w.looted.delete(id); this.bcast({ t: 'lootback', id }); }, LOOT_RESPAWN_MS);
+        } else if (typeof id === 'string') {
+          const d = w.drops.get(id); if (!d) return; clearTimeout(d.timer); w.drops.delete(id);
+        } else return;
+        this.bcast({ t: 'pick', id, by: p.id }, q => q !== p); break;
+      }
+      case 'drop': {
+        if (ar || !m.it || this.world.drops.size > 400) return;
+        const it = m.it, kind = it.kind, w = this.world;
+        if (!['gun', 'med', 'bag', 'ammo'].includes(kind)) return;
+        const c = { id: String(it.id).slice(0, 20), kind, wid: W[it.wid] ? it.wid : null, lvl: num(it.lvl, 0, 3, 0) | 0, qty: num(it.qty, 1, 7, 1) | 0, x: num(it.x, -1e4, 1e4, 0), z: num(it.z, -1e4, 1e4, 0) };
+        if (w.drops.has(c.id)) return;
+        const timer = setTimeout(() => { w.drops.delete(c.id); this.bcast({ t: 'pick', id: c.id, by: 0 }); }, DROP_LIFE_MS);
+        w.drops.set(c.id, { it: c, timer });
+        this.bcast({ t: 'drop', it: c }, q => q !== p);
+        break;
+      }
+      default: break;
+    }
+  }
+
+  /* ---------- arena round logic ---------- */
+  arCheck() {
+    const A = this.A;
+    if (this.players.size < 2) {
+      if (A.state !== 'wait') { A.state = 'wait'; A.round = 0; A.scores = [0, 0]; A.ending = false; for (const p of this.players.values()) { p.inRound = false; p.alive = true; } this.bcast({ t: 'wait', seed: A.seed, scores: A.scores }); }
+      if (A.startT) { clearTimeout(A.startT); A.startT = null; }
+      return;
+    }
+    if (A.state === 'wait' && !A.startT) {
+      this.bcast({ t: 'wait', seed: A.seed, scores: A.scores, starting: STARTDELAY });
+      A.startT = setTimeout(() => { A.startT = null; if (this.players.size >= 2 && A.state === 'wait') this.arStartMatch(); }, STARTDELAY * 1000);
+    }
+  }
+  arStartMatch() {
+    const A = this.A; A.round = 0; A.scores = [0, 0];
+    let i = 0; for (const p of this.players.values()) p.team = (i++) % 2;     // fresh, balanced teams
+    this.arStartRound();
+  }
+  arStartRound() {
+    const A = this.A;
+    if (A.state === 'freeze' || A.state === 'live') return;
+    if (this.players.size < 2) { this.arCheck(); return; }
+    A.round++; A.atk = A.round <= HALF ? 0 : 1; A.seed = rnd(1e9) + 1; A.state = 'freeze'; A.ending = false;
+    const slots = [0, 0], list = [];
+    for (const p of this.players.values()) {
+      p.inRound = true; p.alive = true; p.hp = MAXHP; p.protect = 0; p.q = -1; p.tok = {}; p.lastTok = {}; p.c = 0; p.b = 1;
+      p.w = A.round === 1 ? 'pistol' : LOADOUT[rnd(LOADOUT.length)];
+      list.push({ id: p.id, team: p.team, slot: slots[p.team]++ % 5, w: p.w });
+    }
+    this.bcast({ t: 'round', seed: A.seed, n: A.round, atkTeam: A.atk, freeze: FREEZE, live: LIVE, scores: A.scores, players: list });
+    setTimeout(() => {
+      if (A.state !== 'freeze' || A.seed === undefined) return;
+      A.state = 'live'; A.t0 = now(); this.bcast({ t: 'live', live: LIVE });
+    }, FREEZE * 1000);
+  }
+  aliveTeam(t) { let n = 0; for (const p of this.players.values()) if (p.inRound && p.alive && p.team === t) n++; return n; }
+  arCheckEnd() {
+    const A = this.A; if (A.state !== 'live' || A.ending) return;
+    const a0 = this.aliveTeam(0), a1 = this.aliveTeam(1);
+    if (a0 && a1) return;
+    this.arEndRound(a0 ? 0 : a1 ? 1 : (1 - A.atk), 'elim');
+  }
+  arEndRound(win, why) {
+    const A = this.A; if (A.state !== 'live') return;
+    A.ending = true; A.state = 'end'; A.scores[win]++;
+    const over = A.scores[win] >= WINS;
+    this.bcast({ t: 'rend', win, why, scores: A.scores, over });
+    setTimeout(() => {
+      if (over) { A.ending = false; this.arStartMatch(); } else { A.ending = false; this.arStartRound(); }
+    }, (ENDWAIT + (over ? 4 : 0)) * 1000);
+  }
+  tick() {
+    const t = now();
+    for (const p of this.players.values()) if (t - p.lastMsg > 45000) p.ws.close();
+    if (this.kind === 'arena' && this.A.state === 'live' && t - this.A.t0 > LIVE * 1000) this.arEndRound(1 - this.A.atk, 'time');
+  }
+  positions() {
+    const arr = [];
+    for (const p of this.players.values()) if (p.alive) arr.push([p.id, +p.x.toFixed(2), +p.y.toFixed(2), +p.z.toFixed(2), +p.yaw.toFixed(3), +p.pitch.toFixed(2), p.c, p.w, p.hp, p.b]);
+    if (arr.length > 1 || (arr.length === 1 && this.players.size > 1)) this.bcast({ t: 'st', p: arr });
+  }
 }
-const full = p => ({ id: p.id, name: p.name, ch: p.ch, shirt: p.shirt, lungi: p.lungi, skin: p.skin, x: p.x, y: p.y, z: p.z, yaw: p.yaw, alive: p.alive, hp: p.hp, w: p.w, b: p.b });
-function spawn(p) {
-  p.alive = true; p.hp = MAXHP; p.protect = now() + PROTECT_MS; p.w = 'pistol'; p.b = 1; p.c = 0; p.q = -1; p.tok = {}; p.lastTok = {};
-  return { di: (Math.random() * NDIS) | 0, rs: (Math.random() * 1e9) | 0 };
+
+/* ------------------------- 5v5 tactical arena room ------------------------- */
+const AC = require('./arena-core.js').ArenaCore;
+class ArenaRoom {
+  constructor() {
+    this.kind = 'arena'; this.players = new Map();
+    this.M = new AC.Match((to, e) => this.emit(to, e));
+  }
+  emit(to, e) {
+    const s = JSON.stringify(e);
+    if (to == null) { for (const p of this.players.values()) p.ws.send(s); }
+    else { const p = this.players.get(to); if (p) p.ws.send(s); }
+  }
+  get size() { return this.players.size; }
+  full(q) { const m = this.M.P(q.id) || {}; return { id: q.id, name: q.name, shirt: q.shirt, lungi: q.lungi, skin: q.skin, team: m.team, alive: !!m.alive && !!m.inRound, hp: m.hp, armor: m.armor, w: m.w, x: m.x, y: m.y, z: m.z, yaw: m.yaw, slot: m.slot }; }
+  join(ws, m) {
+    const M = this.M;
+    const info = { id: nextId++, name: clean(m.name), shirt: hexc(m.shirt), lungi: hexc(m.lungi), skin: hexc(m.skin) };
+    const mp = M.addPlayer(info);
+    if (!mp) { ws.send(JSON.stringify({ t: 'full' })); ws.close(); return null; }
+    const p = { id: info.id, ws, room: this, name: info.name, shirt: info.shirt, lungi: info.lungi, skin: info.skin, lastMsg: now() };
+    const others = [...this.players.values()].map(q => this.full(q));
+    this.players.set(p.id, p);
+    const b = M.bomb;
+    ws.send(JSON.stringify({ t: 'welcome', mode: 'arena', id: p.id, team: mp.team, seed: M.seed, phase: M.st, round: M.round, atk: M.atk, scores: M.scores, time: Math.max(0, M.t), ot: M.ot ? M.ot.wins : null, players: others, n: this.players.size,
+      bomb: b && b.planted ? { x: b.x, z: b.z, site: b.site } : null }));
+    this.emit(null, { t: 'cnt', n: this.players.size });
+    for (const q of this.players.values()) if (q !== p) q.ws.send(JSON.stringify({ t: 'join', p: this.full(p) }));
+    M.econ(mp);
+    M.check();
+    return p;
+  }
+  leave(p) {
+    if (!this.players.has(p.id)) return;
+    this.players.delete(p.id);
+    this.emit(null, { t: 'leave', id: p.id, name: p.name });
+    this.emit(null, { t: 'cnt', n: this.players.size });
+    this.M.removePlayer(p.id);
+  }
+  handle(p, m) {
+    const M = this.M;
+    if (m.t === 's') {
+      M.setPos(p.id, num(m.x, -500, 6000, 0), num(m.y, -5, 60, 0), num(m.z, -500, 4000, 0), num(m.yaw, -1e4, 1e4, 0), num(m.pitch, -2, 2, 0), m.c, m.w);
+    } else if (m.t === 'shot') {
+      const mp = M.P(p.id); if (!mp || !mp.alive || !AC.GUNS[m.wid] || (M.st !== 'live' && M.st !== 'planted')) return;
+      const s = JSON.stringify({ t: 'shot', id: p.id, wid: m.wid, x: num(m.x, -1e4, 1e4, 0), y: num(m.y, -50, 500, 0), z: num(m.z, -1e4, 1e4, 0), tx: num(m.tx, -1e4, 1e4, 0), ty: num(m.ty, -50, 500, 0), tz: num(m.tz, -1e4, 1e4, 0) });
+      for (const q of this.players.values()) if (q !== p) q.ws.send(s);
+    } else if (m.t === 'buy' || m.t === 'hit' || m.t === 'plant' || m.t === 'defuse') {
+      M.msg(p.id, m);
+    }
+  }
+  tick() {
+    const t = now();
+    for (const p of this.players.values()) if (t - p.lastMsg > 45000) p.ws.close();
+  }
+  step(dt) { this.M.tick(dt); }
+  positions() {
+    const arr = [];
+    for (const p of this.M.players.values()) if (p.alive && p.inRound) arr.push([p.id, +p.x.toFixed(2), +p.y.toFixed(2), +p.z.toFixed(2), +p.yaw.toFixed(3), +p.pitch.toFixed(2), p.c, p.w, p.hp, p.armor]);
+    if (arr.length && this.players.size > 1) this.emit(null, { t: 'st', p: arr });
+  }
 }
-const sendCount = () => bcast({ t: 'cnt', n: players.size });
+const rooms = { br: new Room('br'), arena: new ArenaRoom() };
 
 function onConnect(ws) {
   let p = null;
@@ -134,117 +372,21 @@ function onConnect(ws) {
     if (!m || typeof m.t !== 'string') return;
     if (!p) {
       if (m.t !== 'join') return;
-      if (players.size >= MAX_PLAYERS) { ws.send(JSON.stringify({ t: 'full' })); ws.close(); return; }
-      p = {
-        id: nextId++, ws, name: clean(m.name), ch: CHARS.includes(m.ch) ? m.ch : '', shirt: hexc(m.shirt), lungi: hexc(m.lungi), skin: hexc(m.skin),
-        alive: true, hp: MAXHP, x: 0, y: 0, z: 0, yaw: 0, pitch: 0, c: 0, w: 'pistol', b: 1, protect: 0,
-        kills: 0, hs: 0, tok: {}, lastTok: {}, q: -1, hits: 0, lastHeal: 0, lastMsg: now()
-      };
-      const sp = spawn(p);
-      const others = [...players.values()].map(full);
-      players.set(p.id, p);
-      ws.send(JSON.stringify({ t: 'welcome', id: p.id, seed: world.seed, spawn: sp, looted: [...world.looted.keys()], drops: [...world.drops.values()].map(d => d.it), players: others, n: players.size }));
-      bcast({ t: 'join', p: full(p) }, q => q !== p);
-      sendCount();
+      const room = m.mode === 'arena' ? rooms.arena : rooms.br;
+      p = room.join(ws, m);
+      if (!p) { p = false; }
       return;
     }
+    if (p === false) return;
     p.lastMsg = now();
-    handle(p, m);
+    p.room.handle(p, m);
   };
-  ws.onclose = () => {
-    if (!p || !players.has(p.id)) return;
-    players.delete(p.id);
-    bcast({ t: 'leave', id: p.id, name: p.name });
-    sendCount();
-  };
+  ws.onclose = () => { if (p) p.room.leave(p); };
 }
 
-function handle(p, m) {
-  switch (m.t) {
-    case 's': {
-      if (!p.alive) return;
-      p.x = num(m.x, -500, 3000, p.x); p.y = num(m.y, -5, 60, p.y); p.z = num(m.z, -500, 4000, p.z);
-      p.yaw = num(m.yaw, -1e4, 1e4, p.yaw); p.pitch = num(m.pitch, -2, 2, p.pitch);
-      p.c = m.c ? 1 : 0; if (W[m.w]) p.w = m.w; p.b = num(m.b, 1, 3, 1) | 0; break;
-    }
-    case 'shot': {
-      if (!p.alive || !W[m.wid]) return;
-      bcast({ t: 'shot', id: p.id, wid: m.wid, x: num(m.x, -1e4, 1e4, 0), y: num(m.y, -50, 500, 0), z: num(m.z, -1e4, 1e4, 0), tx: num(m.tx, -1e4, 1e4, 0), ty: num(m.ty, -50, 500, 0), tz: num(m.tz, -1e4, 1e4, 0) }, q => q !== p);
-      break;
-    }
-    case 'hit': {
-      if (!p.alive) return;
-      const tg = players.get(m.id | 0); if (!tg || tg === p || !tg.alive || now() < tg.protect) return;
-      const def = W[m.wid]; if (!def) return;
-      const tn = now();
-      if (m.q !== p.q) {            // a new trigger pull: needs a shot token
-        const last = p.lastTok[m.wid] || tn;
-        p.tok[m.wid] = Math.min(3, (p.tok[m.wid] == null ? 3 : p.tok[m.wid]) + (tn - last) / (def.rate * 1000 * .9));
-        p.lastTok[m.wid] = tn;
-        if (p.tok[m.wid] < 1) return;
-        p.tok[m.wid] -= 1; p.q = m.q; p.hits = 0;
-      }
-      if (++p.hits > def.pel) return;
-      const d = Math.hypot(p.x - tg.x, p.z - tg.z);
-      if (d > def.range + 20) return;
-      const head = !!m.head;
-      const fall = m.wid === 'sn' ? 1 : 1 - .4 * Math.min(1, d / def.range);
-      const dmg = Math.max(1, Math.round(def.dmg * (head ? def.head : 1) * fall));
-      tg.hp -= dmg;
-      if (tg.hp > 0) { bcast({ t: 'dmg', id: tg.id, hp: tg.hp, by: p.id, head, wid: m.wid }); return; }
-      tg.hp = 0; tg.alive = false; p.kills++; if (head) p.hs++;
-      bcast({ t: 'dmg', id: tg.id, hp: 0, by: p.id, head, wid: m.wid });
-      bcast({ t: 'kill', id: tg.id, by: p.id, head, wid: m.wid });
-      setTimeout(() => {      // respawn after 5 seconds
-        if (!players.has(tg.id)) return;
-        const sp = spawn(tg);
-        tg.ws.send(JSON.stringify({ t: 'respawn', spawn: sp }));
-        bcast({ t: 'resp', id: tg.id }, q => q !== tg);
-      }, RESPAWN_MS);
-      break;
-    }
-    case 'heal': {
-      if (!p.alive) return;
-      if (now() - p.lastHeal < 2000) return;
-      p.lastHeal = now(); p.hp = Math.min(MAXHP, p.hp + 80);
-      bcast({ t: 'heal', id: p.id, hp: p.hp }); break;
-    }
-    case 'pick': {   // someone took a loot item: remove it for everyone else
-      const id = m.id;
-      if (typeof id === 'number') {
-        if (world.looted.has(id)) return;
-        world.looted.set(id, now());
-        setTimeout(() => { world.looted.delete(id); bcast({ t: 'lootback', id }); }, LOOT_RESPAWN_MS);
-      } else if (typeof id === 'string') {
-        const d = world.drops.get(id); if (!d) return; clearTimeout(d.timer); world.drops.delete(id);
-      } else return;
-      bcast({ t: 'pick', id, by: p.id }, q => q !== p); break;
-    }
-    case 'drop': {
-      if (!m.it || world.drops.size > 400) return;
-      const it = m.it, kind = it.kind;
-      if (!['gun', 'med', 'bag', 'ammo'].includes(kind)) return;
-      const clean_ = { id: String(it.id).slice(0, 20), kind, wid: W[it.wid] ? it.wid : null, lvl: num(it.lvl, 0, 3, 0) | 0, qty: num(it.qty, 1, 7, 1) | 0, x: num(it.x, -1e4, 1e4, 0), z: num(it.z, -1e4, 1e4, 0) };
-      if (world.drops.has(clean_.id)) return;
-      const timer = setTimeout(() => { world.drops.delete(clean_.id); bcast({ t: 'pick', id: clean_.id, by: 0 }); }, DROP_LIFE_MS);
-      world.drops.set(clean_.id, { it: clean_, timer });
-      bcast({ t: 'drop', it: clean_ }, q => q !== p);
-      break;
-    }
-    default: break;   // 'ping' etc just refresh lastMsg
-  }
-}
-
-setInterval(() => {   // idle cleanup
-  const t = now();
-  for (const p of players.values()) if (t - p.lastMsg > 45000) p.ws.close();
-}, 5000);
-
-setInterval(() => {   // 15 Hz: positions of everyone alive
-  const arr = [];
-  for (const p of players.values()) if (p.alive) arr.push([p.id, +p.x.toFixed(2), +p.y.toFixed(2), +p.z.toFixed(2), +p.yaw.toFixed(3), +p.pitch.toFixed(2), p.c, p.w, p.hp, p.b]);
-  if (arr.length > 1 || (arr.length === 1 && players.size > 1)) bcast({ t: 'st', p: arr });
-}, 66);
+setInterval(() => { for (const r of Object.values(rooms)) r.tick(); }, 1000);
+setInterval(() => { for (const r of Object.values(rooms)) r.positions(); }, 66);
+setInterval(() => rooms.arena.step(.05), 50);
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log('Battle Malabary server running on port ' + PORT);
