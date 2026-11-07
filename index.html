@@ -1969,8 +1969,8 @@ function buildCharMesh(b){
   const legL=new THREE.Object3D(),legR=new THREE.Object3D(),bag2=new THREE.Object3D(),bag3=new THREE.Object3D();
   const np=nameplate(b.name,'#ffd9a0');g.add(np,legL,legR,bag2,bag3);
   const gunHold=new THREE.Group();gunHold.position.set(.3,1.1,-.3);g.add(gunHold);
-  g.userData={legL,legR,np,bag2,bag3,gunHold,hold};scene.add(g);
   const hold=new THREE.Group();g.add(hold);
+  g.userData={legL,legR,np,bag2,bag3,gunHold,hold};scene.add(g);
   const fallback=()=>{const sk=mat(b.skin),t=new THREE.Mesh(botGeo.torso,mat(b.shirt)),hd=new THREE.Mesh(botGeo.head,sk),lg=new THREE.Mesh(botGeo.lungi,mat(b.lungi));t.position.y=1.3;hd.position.y=1.68;lg.position.y=.62;hold.add(t,hd,lg);};
   Chars.load(b.ch).then(root=>{hold.add(Chars.clone(root));try{g.userData.rig=Chars.rig(hold);}catch(e){g.userData.rig=null;}}).catch(fallback);
   return g;
