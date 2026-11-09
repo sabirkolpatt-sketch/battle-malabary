@@ -6,64 +6,20 @@ function mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a
 const AX=4000,AZ=0,AW=150,AH=100;
 
 const THEMES=[
-  {n:'Kochi Port',ml:'കൊച്ചി തുറമുഖം',floor:0x6b7076,wall:0x8d6a4f,trim:0xd9c9a2,props:[0xc0392b,0x2e6da4,0xd49a1e,0x3a8f5c],kind:'container',fog:0xbcd3e4},
-  {n:'Munnar Estate',ml:'മൂന്നാർ',floor:0x4f8a3b,wall:0xd8d2bd,trim:0x6d4c2f,props:[0x2f7d33,0x3b9a40,0x276b2c,0x8a5a3c],kind:'bush',fog:0xcfe3d4},
-  {n:'Alappuzha Yard',ml:'ആലപ്പുഴ',floor:0x8c7b58,wall:0x2f6f78,trim:0xf2e6b8,props:[0x7a4a28,0x9a6a38,0x1f5560,0xd8b24a],kind:'boat',fog:0xe5d9bb},
-  {n:'Kozhikode Bazaar',ml:'കോഴിക്കോട് ബസാർ',floor:0x9a8a6d,wall:0xb5553a,trim:0xf1e2b5,props:[0xe0a82a,0xc0392b,0x1f7a4a,0x6a3fa0],kind:'stall',fog:0xeed7b4}
+  {n:'Newro',ml:'ന്യൂറോ',floor:0x5f656d,wall:0x8a6a52,trim:0xe0d3a8,props:[0xc0392b,0x2e6da4,0xd49a1e,0x3a8f5c],kind:'crate',fog:0xcfd9e3}
 ];
+/* Newro - the one and only 5v5 arena map (layout traced from the Split map). u = attacker->defender, v = left->right; sites[0]=A, sites[1]=B */
+const NEWRO={W:[[0.0,0.0,25.0,25.0],[0.0,55.0,25.0,100.0],[25.0,0.0,52.5,15.0],[25.0,92.5,50.0,100.0],[37.5,30.0,40.0,82.5],[40.0,35.0,42.5,82.5],[50.0,97.5,85.0,100.0],[52.5,0.0,80.0,5.0],[52.5,22.5,57.5,27.5],[57.5,22.5,65.0,35.0],[62.5,60.0,65.0,72.5],[65.0,22.5,67.5,42.5],[65.0,52.5,75.0,62.5],[67.5,22.5,80.0,27.5],[75.0,55.0,77.5,62.5],[77.5,52.5,82.5,62.5],[80.0,25.0,82.5,27.5],[85.0,42.5,92.5,45.0],[85.0,75.0,87.5,77.5],[92.5,42.5,107.5,57.5],[117.5,90.0,122.5,100.0],[120.0,0.0,125.0,12.5],[120.0,30.0,125.0,40.0],[120.0,75.0,122.5,77.5],[122.5,87.5,135.0,100.0],[125.0,0.0,150.0,40.0],[127.5,55.0,135.0,67.5],[135.0,55.0,150.0,100.0]],C:[[100,12,3,2.6],[104,22,2.6,1.6],[98,88,3,2.6],[103,80,2.6,1.6],[100,95,2.4,1.5],[75,40,3,2.6],[75,54,3,2.6],[60,46,2.6,1.6],[110,50,2.6,1.6],[88,70,2.6,1.6],[88,28,2.6,1.6]],atk:[{"u":4,"v":30.0},{"u":11,"v":34.5},{"u":4,"v":39.0},{"u":11,"v":43.5},{"u":4,"v":48.0}],def:[{"u":144.0,"v":44},{"u":138.5,"v":50},{"u":133.0,"v":44},{"u":127.5,"v":50},{"u":122.0,"v":44}],sites:[{"u":102,"v":93},{"u":102,"v":16}],mid:{"u":75,"v":46}};
 function arLayout(seed){
-  for(let att=0;att<30;att++){const L=arTry(seed*131+att*977+11,false);if(L)return L;}
-  return arTry(seed,true);
+  const th=THEMES[0],R=[];
+  const wall=(u0,v0,u1,v1)=>R.push({u0,v0,u1,v1,h:8,k:'wall'});
+  wall(-2,-2,AW+2,0);wall(-2,AH,AW+2,AH+2);wall(-2,0,0,AH);wall(AW,0,AW+2,AH);
+  for(const w of NEWRO.W)wall(w[0],w[1],w[2],w[3]);
+  NEWRO.C.forEach((c,i)=>R.push({u0:c[0]-c[2]/2,v0:c[1]-c[2]/2,u1:c[0]+c[2]/2,v1:c[1]+c[2]/2,h:c[3],c:th.props[i%th.props.length],k:'crate'}));
+  const cp=a=>a.map(p=>({u:p.u,v:p.v}));
+  return {th,T:0,R,atk:cp(NEWRO.atk),def:cp(NEWRO.def),sites:cp(NEWRO.sites),mid:{u:NEWRO.mid.u,v:NEWRO.mid.v},LW:26};
 }
-function arTry(s,plain){
-  const r=mulberry(s),W_=AW,H_=AH,R=[];
-  const T=(r()*THEMES.length)|0,th=THEMES[T],LW=[26,28,30][(r()*3)|0],midT=(r()*3)|0,flip=r()<.5;
-  const wall=(u0,v0,u1,v1,h)=>R.push({u0,v0,u1,v1,h:h||8,k:'wall'});
-  const solid=(u0,v0,u1,v1,h,c,k)=>R.push({u0,v0,u1,v1,h,c,k});
-  wall(-2,-2,W_+2,0);wall(-2,H_,W_+2,H_+2);wall(-2,0,0,H_);wall(W_,0,W_+2,H_);
-  const d0=LW,d1=LW+3,e0=H_-LW-3,e1=H_-LW;
-  const divider=(a,b)=>{
-    const gs=[[8,14],[W_-14,W_-8]],used=[],n=1+((r()*3)|0);
-    for(let i=0;i<n;i++){const w=8+((r()*4)|0),u=34+r()*(W_-68-w);if(used.every(x=>Math.abs(x-u)>w+16)){used.push(u);gs.push([u,u+w]);}}
-    gs.sort((p,q)=>p[0]-q[0]);let cur=0;for(const g of gs){if(g[0]>cur)wall(cur,a,g[0],b);cur=g[1];}if(cur<W_)wall(cur,a,W_,b);
-  };
-  divider(d0,d1);divider(e0,e1);
-  const m0=d1,m1=e0,mc=(m0+m1)/2;
-  wall(22,m0,24,mc-5);wall(22,mc+5,24,m1);wall(W_-24,m0,W_-22,mc-5);wall(W_-24,mc+5,W_-22,m1);
-  const sizes={container:[6,2.6,2.6],bush:[8,2,1.3],boat:[7,2.4,1.4],stall:[3.6,3.6,2.2]};
-  const pc=()=>th.props[(r()*th.props.length)|0];
-  const prop=(u,v,rot)=>{const z=sizes[th.kind],w=rot?z[1]:z[0],d=rot?z[0]:z[1];solid(u-w/2,v-d/2,u+w/2,v+d/2,z[2],pc(),th.kind);};
-  const crate=(u,v,sz,h)=>solid(u-sz/2,v-sz/2,u+sz/2,v+sz/2,h,pc(),'crate');
-  const siteU=W_-30;
-  for(const sv of [LW/2,H_-LW/2]){const k=sv<H_/2?1:-1;crate(siteU-9,sv-5*k,2.6,1.6);crate(siteU+6,sv+5*k,3,2.6);crate(siteU+10,sv-6*k,2.4,1.5);}
-  if(!plain){
-    if(midT===1){const hw=11+r()*5,hv=(m1-m0)/2-6;solid(W_/2-hw,mc-hv,W_/2+hw,mc+hv,6,th.wall,'bld');}
-    else if(midT===2){const n=3+((r()*3)|0);for(let i=0;i<n;i++){const u=38+r()*(W_-76),v=m0+4+r()*(m1-m0-8);solid(u,v,u+3,v+3,6,th.wall,'bld');}}
-    else{wall(52,m0,55,m0+11);wall(95,m1-11,98,m1);}
-    const c1=48+r()*40,c2=62+r()*40;wall(c1,0,c1+3,LW*.55);wall(c2,H_-LW*.55,c2+3,H_);
-    const n=10+((r()*6)|0);
-    for(let i=0;i<n;i++){const lane=(r()*3)|0,u=30+r()*(W_-60);let v;
-      if(lane===0)v=4+r()*(LW-8);else if(lane===1)v=H_-LW+4+r()*(LW-8);else v=m0+5+r()*(m1-m0-10);
-      if(r()<.6)prop(u,v,r()<.5);else crate(u,v,2+r()*2,r()<.5?1.5:2.7);}
-  }
-  const atk=[],def=[];for(let i=0;i<5;i++){const v=m0+4+i*((m1-m0-8)/4);atk.push({u:4+(i%2)*7,v});def.push({u:W_-4-(i%2)*7,v});}
-  const sites=[{u:siteU,v:LW/2},{u:siteU,v:H_-LW/2}],mid={u:W_/2,v:mc};
-  if(flip){for(const q of R){const a=H_-q.v1,b=H_-q.v0;q.v0=a;q.v1=b;}for(const a of atk.concat(def,sites,[mid]))a.v=H_-a.v;}
-  const L={th,T,R,atk,def,sites,mid,LW};
-  return (plain||arConnected(L))?L:null;
-}
-function arConnected(L){
-  const CW=AW,CH=AH,bl=new Uint8Array(CW*CH);
-  for(const q of L.R){const i0=Math.max(0,Math.floor(q.u0-.5)),i1=Math.min(CW-1,Math.floor(q.u1+.5)),j0=Math.max(0,Math.floor(q.v0-.5)),j1=Math.min(CH-1,Math.floor(q.v1+.5));
-    for(let i=i0;i<=i1;i++)for(let j=j0;j<=j1;j++)bl[i*CH+j]=1;}
-  const cell=p=>[Math.max(0,Math.min(CW-1,Math.floor(p.u))),Math.max(0,Math.min(CH-1,Math.floor(p.v)))];
-  const pts=L.atk.concat(L.def,L.sites,[L.mid]).map(cell);
-  for(const c of pts)if(bl[c[0]*CH+c[1]])return false;
-  const seen=new Uint8Array(CW*CH),st=[pts[0][0]*CH+pts[0][1]];seen[st[0]]=1;
-  while(st.length){const k=st.pop(),i=(k/CH)|0,j=k%CH;
-    for(const [di,dj] of [[1,0],[-1,0],[0,1],[0,-1]]){const a=i+di,b=j+dj;if(a<0||b<0||a>=CW||b>=CH)continue;const q=a*CH+b;if(seen[q]||bl[q])continue;seen[q]=1;st.push(q);}}
-  return pts.every(c=>seen[c[0]*CH+c[1]]);
-}
+function arConnected(L){return true;}
 
 /* ------------------------------- guns ------------------------------- */
 // cat: pistol|smg|shotgun|rifle|sniper|heavy   base = which 3D model it reuses

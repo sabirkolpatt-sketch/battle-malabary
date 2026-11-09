@@ -3,7 +3,7 @@
  * Serves index.html (the game) and a WebSocket endpoint on the same port.
  * Env: PORT (default 3000), MAX_PLAYERS (default 16)
  * Two online modes: 'br' endless battle royale (join any time, respawn in 5 s) and
- * 'arena' 5v5 tactical rounds (random map every round, first to 4 rounds).
+ * 'arena' 5v5 tactical rounds (fixed map Newro, first to 4 rounds).
  */
 'use strict';
 const http = require('http');
