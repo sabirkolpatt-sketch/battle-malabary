@@ -44,26 +44,6 @@ const server = http.createServer((req, res) => {
     });
     return;
   }
-  if (url === '/soon.mp4') {
-    const f = path.join(__dirname, 'soon.mp4');
-    fs.stat(f, (err, st) => {
-      if (err) { res.writeHead(404); return res.end('soon.mp4 missing next to server.js'); }
-      const m = /bytes=(\d*)-(\d*)/.exec(req.headers.range || '');
-      let start = 0, end = st.size - 1, code = 200;
-      if (m) {
-        if (m[1] !== '') start = parseInt(m[1], 10);
-        if (m[2] !== '') end = Math.min(parseInt(m[2], 10), st.size - 1);
-        if (m[1] === '' && m[2] !== '') { start = Math.max(0, st.size - parseInt(m[2], 10)); end = st.size - 1; }
-        if (!(start >= 0 && start <= end)) { res.writeHead(416, { 'content-range': 'bytes */' + st.size }); return res.end(); }
-        code = 206;
-      }
-      const h = { 'content-type': 'video/mp4', 'accept-ranges': 'bytes', 'content-length': end - start + 1, 'cache-control': 'public, max-age=3600' };
-      if (code === 206) h['content-range'] = 'bytes ' + start + '-' + end + '/' + st.size;
-      res.writeHead(code, h);
-      fs.createReadStream(f, { start, end }).pipe(res);
-    });
-    return;
-  }
   res.writeHead(404); res.end('Not found');
 });
 

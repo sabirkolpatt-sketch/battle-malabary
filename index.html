@@ -250,13 +250,10 @@ body.touch .fe{font-size:15px}
 .chCard b{font-family:var(--display);font-weight:600;font-size:clamp(14px,3.8vw,22px);letter-spacing:.04em;text-transform:uppercase;white-space:nowrap}
 .chCard.on{border-color:var(--gold);box-shadow:0 0 0 3px rgba(242,182,50,.35),0 10px 30px rgba(0,0,0,.5);background:var(--panel2)}
 #chGo{margin-top:6px;min-width:220px;max-width:92vw}
-#soonBox{display:none;position:fixed;inset:0;z-index:99999;background:#000;align-items:center;justify-content:center}
-#soonVid{width:100%;height:100%;object-fit:contain;background:#000}
 </style>
 
 <canvas id="art"></canvas>
 <canvas id="gl"></canvas>
-<div id="soonBox"><video id="soonVid" playsinline webkit-playsinline preload="auto"></video></div>
 
 <!-- ================= LOADING ================= -->
 <div id="loading" class="scr shade on">
@@ -427,21 +424,21 @@ window.GLBDATA={"pistol":{"parts":[{"p":"6VKhvi5Vmr6S4ws/rwijvoZjkL66mws/yLyovmY
 (function (G) {
 'use strict';
 function mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
-const AX=4000,AZ=0,AW=150,AH=100;
+const AX=4000,AZ=0,AW=164,AH=174;
 
 const THEMES=[
   {n:'Newro',ml:'ന്യൂറോ',floor:0x5f656d,wall:0x8a6a52,trim:0xe0d3a8,props:[0xc0392b,0x2e6da4,0xd49a1e,0x3a8f5c],kind:'crate',fog:0xcfd9e3}
 ];
-/* Newro - the one and only 5v5 arena map (layout traced from the Split map). u = attacker->defender, v = left->right; sites[0]=A, sites[1]=B */
-const NEWRO={W:[[0.0,0.0,25.0,25.0],[0.0,55.0,25.0,100.0],[25.0,0.0,52.5,15.0],[25.0,92.5,50.0,100.0],[37.5,30.0,40.0,82.5],[40.0,35.0,42.5,82.5],[50.0,97.5,85.0,100.0],[52.5,0.0,80.0,5.0],[52.5,22.5,57.5,27.5],[57.5,22.5,65.0,35.0],[62.5,60.0,65.0,72.5],[65.0,22.5,67.5,42.5],[65.0,52.5,75.0,62.5],[67.5,22.5,80.0,27.5],[75.0,55.0,77.5,62.5],[77.5,52.5,82.5,62.5],[80.0,25.0,82.5,27.5],[85.0,42.5,92.5,45.0],[85.0,75.0,87.5,77.5],[92.5,42.5,107.5,57.5],[117.5,90.0,122.5,100.0],[120.0,0.0,125.0,12.5],[120.0,30.0,125.0,40.0],[120.0,75.0,122.5,77.5],[122.5,87.5,135.0,100.0],[125.0,0.0,150.0,40.0],[127.5,55.0,135.0,67.5],[135.0,55.0,150.0,100.0]],C:[[100,12,3,2.6],[104,22,2.6,1.6],[98,88,3,2.6],[103,80,2.6,1.6],[100,95,2.4,1.5],[75,40,3,2.6],[75,54,3,2.6],[60,46,2.6,1.6],[110,50,2.6,1.6],[88,70,2.6,1.6],[88,28,2.6,1.6]],atk:[{"u":4,"v":30.0},{"u":11,"v":34.5},{"u":4,"v":39.0},{"u":11,"v":43.5},{"u":4,"v":48.0}],def:[{"u":144.0,"v":44},{"u":138.5,"v":50},{"u":133.0,"v":44},{"u":127.5,"v":50},{"u":122.0,"v":44}],sites:[{"u":102,"v":93},{"u":102,"v":16}],mid:{"u":75,"v":46}};
+/* Newro - the one and only 5v5 arena map: pixel-traced from the Valorant Split map. u = attacker->defender, v = left->right; sites[0]=A, sites[1]=B */
+const NEWRO={W:[[0.0,0.0,4.0,174.0],[4.0,0.0,6.0,74.0],[4.0,92.0,24.0,174.0],[6.0,0.0,22.0,68.0],[22.0,0.0,24.0,46.0],[22.0,58.0,24.0,64.0],[22.0,66.0,24.0,68.0],[24.0,0.0,28.0,42.0],[24.0,120.0,38.0,174.0],[28.0,0.0,58.0,28.0],[32.0,56.0,44.0,86.0],[34.0,92.0,48.0,106.0],[36.0,86.0,46.0,92.0],[38.0,152.0,54.0,174.0],[40.0,46.0,42.0,56.0],[44.0,58.0,46.0,86.0],[46.0,58.0,50.0,60.0],[46.0,88.0,50.0,92.0],[48.0,56.0,50.0,58.0],[48.0,92.0,56.0,102.0],[48.0,136.0,50.0,138.0],[50.0,90.0,56.0,92.0],[52.0,28.0,54.0,30.0],[52.0,88.0,56.0,90.0],[54.0,138.0,56.0,140.0],[54.0,154.0,56.0,174.0],[56.0,106.0,62.0,130.0],[56.0,160.0,90.0,174.0],[58.0,0.0,86.0,12.0],[58.0,24.0,62.0,28.0],[58.0,46.0,84.0,48.0],[58.0,58.0,76.0,60.0],[60.0,56.0,74.0,58.0],[62.0,26.0,64.0,30.0],[62.0,40.0,84.0,42.0],[62.0,48.0,72.0,56.0],[62.0,60.0,78.0,62.0],[62.0,108.0,68.0,130.0],[64.0,42.0,84.0,46.0],[64.0,62.0,68.0,72.0],[64.0,88.0,66.0,102.0],[64.0,130.0,68.0,142.0],[66.0,88.0,70.0,100.0],[66.0,142.0,72.0,144.0],[66.0,152.0,92.0,160.0],[68.0,62.0,78.0,70.0],[68.0,100.0,70.0,128.0],[68.0,140.0,72.0,142.0],[70.0,70.0,78.0,72.0],[70.0,90.0,72.0,110.0],[70.0,122.0,76.0,128.0],[72.0,48.0,84.0,50.0],[72.0,72.0,78.0,74.0],[72.0,90.0,74.0,108.0],[74.0,90.0,88.0,106.0],[78.0,12.0,86.0,14.0],[78.0,20.0,86.0,40.0],[82.0,120.0,92.0,126.0],[82.0,140.0,98.0,142.0],[84.0,126.0,92.0,128.0],[86.0,0.0,164.0,6.0],[86.0,62.0,104.0,64.0],[86.0,142.0,98.0,144.0],[88.0,104.0,98.0,106.0],[88.0,128.0,92.0,134.0],[88.0,144.0,98.0,152.0],[90.0,64.0,104.0,78.0],[90.0,166.0,164.0,174.0],[92.0,122.0,100.0,126.0],[92.0,152.0,94.0,156.0],[94.0,152.0,96.0,154.0],[96.0,22.0,102.0,34.0],[98.0,94.0,126.0,96.0],[98.0,120.0,106.0,122.0],[100.0,46.0,114.0,56.0],[100.0,78.0,114.0,94.0],[100.0,118.0,106.0,120.0],[102.0,122.0,106.0,124.0],[104.0,70.0,108.0,78.0],[104.0,96.0,112.0,108.0],[104.0,124.0,106.0,126.0],[108.0,56.0,116.0,64.0],[108.0,72.0,114.0,78.0],[112.0,70.0,114.0,72.0],[112.0,96.0,126.0,102.0],[114.0,46.0,116.0,50.0],[114.0,52.0,116.0,56.0],[114.0,72.0,116.0,74.0],[114.0,86.0,124.0,94.0],[116.0,18.0,122.0,32.0],[116.0,38.0,122.0,46.0],[116.0,142.0,124.0,148.0],[118.0,124.0,126.0,128.0],[122.0,18.0,164.0,26.0],[122.0,42.0,124.0,46.0],[124.0,42.0,126.0,44.0],[124.0,54.0,144.0,74.0],[124.0,88.0,126.0,94.0],[124.0,108.0,126.0,124.0],[124.0,156.0,164.0,166.0],[126.0,6.0,164.0,18.0],[126.0,126.0,132.0,128.0],[130.0,128.0,132.0,132.0],[130.0,142.0,132.0,156.0],[132.0,26.0,164.0,46.0],[132.0,146.0,164.0,156.0],[134.0,90.0,164.0,114.0],[136.0,46.0,164.0,54.0],[142.0,114.0,164.0,146.0],[144.0,54.0,164.0,72.0],[148.0,72.0,164.0,74.0],[156.0,74.0,164.0,90.0]],C:[[121.6,13.8,124.8,16.4,1.5],[107.6,108.2,113.0,110.4,1.5],[106.2,6.2,108.8,13.8,1.5],[104.6,128.6,107.4,131.0,1.5],[89.6,100.8,94.0,102.4,1.5],[88.8,58.6,90.6,61.2,1.5],[87.2,5.8,90.2,11.8,1.5],[83.4,106.2,87.2,109.4,1.5],[82.8,128.8,86.8,133.8,1.5],[73.6,28.4,77.2,32.2,1.5],[62.6,82.4,65.4,87.8,1.5],[55.0,29.4,62.2,33.4,1.5],[58.0,12.4,61.8,17.4,1.5],[48.8,48.0,61.4,49.6,1.5],[43.8,150.0,48.6,151.6,1.5],[44.4,110.6,46.4,115.2,1.5],[28.0,29.6,30.4,43.2,1.5],[112.6,147.6,115.8,149.6,3.2],[104.0,153.6,109.6,156.0,3.2],[107.2,39.8,109.4,42.4,3.2]],B:[[86.2,14.4,87.0,20.0,0],[88.6,106.4,89.4,118.4,0],[91.6,128.4,92.6,140.0,0],[69.6,71.4,70.4,88.6,0],[53.6,29.0,54.6,45.6,1],[51.0,58.4,55.0,59.8,1],[58.0,101.2,68.0,106.2,1],[56.6,137.0,63.0,142.0,1]],atk:[{"u":21.0,"v":70.0},{"u":11.0,"v":70.0},{"u":16.0,"v":78.0},{"u":21.0,"v":88.0},{"u":11.0,"v":88.0}],def:[{"u":151.0,"v":78.0},{"u":144.0,"v":86.0},{"u":137.0,"v":78.0},{"u":130.0,"v":86.0},{"u":124.0,"v":78.0}],sites:[{"u":101.7,"v":153.7},{"u":104.5,"v":32.6}],mid:{"u":80.0,"v":80.0}};
 function arLayout(seed){
   const th=THEMES[0],R=[];
   const wall=(u0,v0,u1,v1)=>R.push({u0,v0,u1,v1,h:8,k:'wall'});
   wall(-2,-2,AW+2,0);wall(-2,AH,AW+2,AH+2);wall(-2,0,0,AH);wall(AW,0,AW+2,AH);
   for(const w of NEWRO.W)wall(w[0],w[1],w[2],w[3]);
-  NEWRO.C.forEach((c,i)=>R.push({u0:c[0]-c[2]/2,v0:c[1]-c[2]/2,u1:c[0]+c[2]/2,v1:c[1]+c[2]/2,h:c[3],c:th.props[i%th.props.length],k:'crate'}));
+  NEWRO.C.forEach((c,i)=>R.push({u0:c[0],v0:c[1],u1:c[2],v1:c[3],h:c[4],c:th.props[i%th.props.length],k:'crate'}));
   const cp=a=>a.map(p=>({u:p.u,v:p.v}));
-  return {th,T:0,R,atk:cp(NEWRO.atk),def:cp(NEWRO.def),sites:cp(NEWRO.sites),mid:{u:NEWRO.mid.u,v:NEWRO.mid.v},LW:26};
+  return {th,T:0,R,B:NEWRO.B,atk:cp(NEWRO.atk),def:cp(NEWRO.def),sites:cp(NEWRO.sites),mid:{u:NEWRO.mid.u,v:NEWRO.mid.v},LW:26};
 }
 function arConnected(L){return true;}
 
@@ -2358,32 +2355,6 @@ $('authForm').addEventListener('submit',async e=>{
   }
   DB.session=key;ACC=DB.accounts[key];dbSave();Aud.click();enterMenu();
 });
-/* ---- coming-soon video: fullscreen, with sound, auto-close at end ---- */
-const soonBox=$('soonBox'),soonVid=$('soonVid');
-let soonOpen=false;
-function inFS(){return !!(document.fullscreenElement||document.webkitFullscreenElement);}
-function closeSoon(){
-  if(!soonOpen)return;soonOpen=false;
-  try{soonVid.pause();}catch(e){}
-  soonBox.style.display='none';
-  soonVid.removeAttribute('src');try{soonVid.load();}catch(e){}
-  if(inFS()){try{(document.exitFullscreen||document.webkitExitFullscreen).call(document);}catch(e){}}
-  if(Aud.ctx)Aud.setLevel(Aud.level);
-}
-function playSoonVideo(){
-  if(soonOpen)return;soonOpen=true;
-  if(Aud.ctx)Aud.mus.gain.setTargetAtTime(0,Aud.ctx.currentTime,.1);
-  soonBox.style.display='flex';
-  soonVid.src='soon.mp4';soonVid.muted=false;soonVid.volume=1;
-  const rq=soonBox.requestFullscreen||soonBox.webkitRequestFullscreen;
-  if(rq){try{const fp=rq.call(soonBox);if(fp&&fp.catch)fp.catch(()=>{});}catch(e){}}
-  const pr=soonVid.play();
-  if(pr&&pr.catch)pr.catch(()=>{soonVid.muted=true;soonVid.play().catch(closeSoon);});
-}
-soonVid.addEventListener('ended',closeSoon);
-soonVid.addEventListener('error',closeSoon);
-['fullscreenchange','webkitfullscreenchange'].forEach(ev=>document.addEventListener(ev,()=>{if(soonOpen&&!inFS())closeSoon();}));
-window.addEventListener('keydown',e=>{if(soonOpen&&e.key==='Escape')closeSoon();},true);
 const MAPS=[
   {id:'kerala',name:'Kerala Open World',sub:'Battle Royale · 14 districts',ready:true},
   {id:'arena5',name:'Tactical Arena',sub:'5v5 · map: Newro',ready:true},
@@ -2400,7 +2371,7 @@ function renderLobbyUI(){
   if(!row.children.length){
     MAPS.forEach(m=>{const b=document.createElement('button');b.type='button';b.className='mc'+(m.ready?'':' lock');b.dataset.id=m.id;
       b.innerHTML=MAPART[m.id||'more']+(m.tag?'<span class="tag">'+m.tag+'</span>':'')+'<span class="cap"><b>'+m.name+'</b><span>'+m.sub+'</span></span>';
-      b.onclick=()=>{Aud.click();if(!m.ready){$('selTxt').textContent=m.name+' - ini varunnu (coming soon)';clearTimeout(renderLobbyUI.t);renderLobbyUI.t=setTimeout(renderLobbyUI,2200);playSoonVideo();return;}selMap=m.id;renderLobbyUI();};
+      b.onclick=()=>{Aud.click();if(!m.ready){$('selTxt').textContent=m.name+' - ini varunnu (coming soon)';clearTimeout(renderLobbyUI.t);renderLobbyUI.t=setTimeout(renderLobbyUI,2200);return;}selMap=m.id;renderLobbyUI();};
       row.appendChild(b);});
   }
   [...row.children].forEach(b=>b.classList.toggle('on',b.dataset.id===selMap));
@@ -2596,21 +2567,21 @@ function netTick(dt){
 $('lbRetry').onclick=()=>netConnect(NET.mode);
 $('lbBack').onclick=()=>{NET.leave();enterMenu();};
 /* ---------------------------- tactical arena (5v5, fixed map: Newro) ---------------------------- */
-const AX=4000,AZ=0,AW=150,AH=100;
+const AX=4000,AZ=0,AW=164,AH=174;
 // @@pure-begin
 const THEMES=[
   {n:'Newro',ml:'ന്യൂറോ',floor:0x5f656d,wall:0x8a6a52,trim:0xe0d3a8,props:[0xc0392b,0x2e6da4,0xd49a1e,0x3a8f5c],kind:'crate',fog:0xcfd9e3}
 ];
-/* Newro - the one and only 5v5 arena map (layout traced from the Split map). u = attacker->defender, v = left->right; sites[0]=A, sites[1]=B */
-const NEWRO={W:[[0.0,0.0,25.0,25.0],[0.0,55.0,25.0,100.0],[25.0,0.0,52.5,15.0],[25.0,92.5,50.0,100.0],[37.5,30.0,40.0,82.5],[40.0,35.0,42.5,82.5],[50.0,97.5,85.0,100.0],[52.5,0.0,80.0,5.0],[52.5,22.5,57.5,27.5],[57.5,22.5,65.0,35.0],[62.5,60.0,65.0,72.5],[65.0,22.5,67.5,42.5],[65.0,52.5,75.0,62.5],[67.5,22.5,80.0,27.5],[75.0,55.0,77.5,62.5],[77.5,52.5,82.5,62.5],[80.0,25.0,82.5,27.5],[85.0,42.5,92.5,45.0],[85.0,75.0,87.5,77.5],[92.5,42.5,107.5,57.5],[117.5,90.0,122.5,100.0],[120.0,0.0,125.0,12.5],[120.0,30.0,125.0,40.0],[120.0,75.0,122.5,77.5],[122.5,87.5,135.0,100.0],[125.0,0.0,150.0,40.0],[127.5,55.0,135.0,67.5],[135.0,55.0,150.0,100.0]],C:[[100,12,3,2.6],[104,22,2.6,1.6],[98,88,3,2.6],[103,80,2.6,1.6],[100,95,2.4,1.5],[75,40,3,2.6],[75,54,3,2.6],[60,46,2.6,1.6],[110,50,2.6,1.6],[88,70,2.6,1.6],[88,28,2.6,1.6]],atk:[{"u":4,"v":30.0},{"u":11,"v":34.5},{"u":4,"v":39.0},{"u":11,"v":43.5},{"u":4,"v":48.0}],def:[{"u":144.0,"v":44},{"u":138.5,"v":50},{"u":133.0,"v":44},{"u":127.5,"v":50},{"u":122.0,"v":44}],sites:[{"u":102,"v":93},{"u":102,"v":16}],mid:{"u":75,"v":46}};
+/* Newro - the one and only 5v5 arena map: pixel-traced from the Valorant Split map. u = attacker->defender, v = left->right; sites[0]=A, sites[1]=B */
+const NEWRO={W:[[0.0,0.0,4.0,174.0],[4.0,0.0,6.0,74.0],[4.0,92.0,24.0,174.0],[6.0,0.0,22.0,68.0],[22.0,0.0,24.0,46.0],[22.0,58.0,24.0,64.0],[22.0,66.0,24.0,68.0],[24.0,0.0,28.0,42.0],[24.0,120.0,38.0,174.0],[28.0,0.0,58.0,28.0],[32.0,56.0,44.0,86.0],[34.0,92.0,48.0,106.0],[36.0,86.0,46.0,92.0],[38.0,152.0,54.0,174.0],[40.0,46.0,42.0,56.0],[44.0,58.0,46.0,86.0],[46.0,58.0,50.0,60.0],[46.0,88.0,50.0,92.0],[48.0,56.0,50.0,58.0],[48.0,92.0,56.0,102.0],[48.0,136.0,50.0,138.0],[50.0,90.0,56.0,92.0],[52.0,28.0,54.0,30.0],[52.0,88.0,56.0,90.0],[54.0,138.0,56.0,140.0],[54.0,154.0,56.0,174.0],[56.0,106.0,62.0,130.0],[56.0,160.0,90.0,174.0],[58.0,0.0,86.0,12.0],[58.0,24.0,62.0,28.0],[58.0,46.0,84.0,48.0],[58.0,58.0,76.0,60.0],[60.0,56.0,74.0,58.0],[62.0,26.0,64.0,30.0],[62.0,40.0,84.0,42.0],[62.0,48.0,72.0,56.0],[62.0,60.0,78.0,62.0],[62.0,108.0,68.0,130.0],[64.0,42.0,84.0,46.0],[64.0,62.0,68.0,72.0],[64.0,88.0,66.0,102.0],[64.0,130.0,68.0,142.0],[66.0,88.0,70.0,100.0],[66.0,142.0,72.0,144.0],[66.0,152.0,92.0,160.0],[68.0,62.0,78.0,70.0],[68.0,100.0,70.0,128.0],[68.0,140.0,72.0,142.0],[70.0,70.0,78.0,72.0],[70.0,90.0,72.0,110.0],[70.0,122.0,76.0,128.0],[72.0,48.0,84.0,50.0],[72.0,72.0,78.0,74.0],[72.0,90.0,74.0,108.0],[74.0,90.0,88.0,106.0],[78.0,12.0,86.0,14.0],[78.0,20.0,86.0,40.0],[82.0,120.0,92.0,126.0],[82.0,140.0,98.0,142.0],[84.0,126.0,92.0,128.0],[86.0,0.0,164.0,6.0],[86.0,62.0,104.0,64.0],[86.0,142.0,98.0,144.0],[88.0,104.0,98.0,106.0],[88.0,128.0,92.0,134.0],[88.0,144.0,98.0,152.0],[90.0,64.0,104.0,78.0],[90.0,166.0,164.0,174.0],[92.0,122.0,100.0,126.0],[92.0,152.0,94.0,156.0],[94.0,152.0,96.0,154.0],[96.0,22.0,102.0,34.0],[98.0,94.0,126.0,96.0],[98.0,120.0,106.0,122.0],[100.0,46.0,114.0,56.0],[100.0,78.0,114.0,94.0],[100.0,118.0,106.0,120.0],[102.0,122.0,106.0,124.0],[104.0,70.0,108.0,78.0],[104.0,96.0,112.0,108.0],[104.0,124.0,106.0,126.0],[108.0,56.0,116.0,64.0],[108.0,72.0,114.0,78.0],[112.0,70.0,114.0,72.0],[112.0,96.0,126.0,102.0],[114.0,46.0,116.0,50.0],[114.0,52.0,116.0,56.0],[114.0,72.0,116.0,74.0],[114.0,86.0,124.0,94.0],[116.0,18.0,122.0,32.0],[116.0,38.0,122.0,46.0],[116.0,142.0,124.0,148.0],[118.0,124.0,126.0,128.0],[122.0,18.0,164.0,26.0],[122.0,42.0,124.0,46.0],[124.0,42.0,126.0,44.0],[124.0,54.0,144.0,74.0],[124.0,88.0,126.0,94.0],[124.0,108.0,126.0,124.0],[124.0,156.0,164.0,166.0],[126.0,6.0,164.0,18.0],[126.0,126.0,132.0,128.0],[130.0,128.0,132.0,132.0],[130.0,142.0,132.0,156.0],[132.0,26.0,164.0,46.0],[132.0,146.0,164.0,156.0],[134.0,90.0,164.0,114.0],[136.0,46.0,164.0,54.0],[142.0,114.0,164.0,146.0],[144.0,54.0,164.0,72.0],[148.0,72.0,164.0,74.0],[156.0,74.0,164.0,90.0]],C:[[121.6,13.8,124.8,16.4,1.5],[107.6,108.2,113.0,110.4,1.5],[106.2,6.2,108.8,13.8,1.5],[104.6,128.6,107.4,131.0,1.5],[89.6,100.8,94.0,102.4,1.5],[88.8,58.6,90.6,61.2,1.5],[87.2,5.8,90.2,11.8,1.5],[83.4,106.2,87.2,109.4,1.5],[82.8,128.8,86.8,133.8,1.5],[73.6,28.4,77.2,32.2,1.5],[62.6,82.4,65.4,87.8,1.5],[55.0,29.4,62.2,33.4,1.5],[58.0,12.4,61.8,17.4,1.5],[48.8,48.0,61.4,49.6,1.5],[43.8,150.0,48.6,151.6,1.5],[44.4,110.6,46.4,115.2,1.5],[28.0,29.6,30.4,43.2,1.5],[112.6,147.6,115.8,149.6,3.2],[104.0,153.6,109.6,156.0,3.2],[107.2,39.8,109.4,42.4,3.2]],B:[[86.2,14.4,87.0,20.0,0],[88.6,106.4,89.4,118.4,0],[91.6,128.4,92.6,140.0,0],[69.6,71.4,70.4,88.6,0],[53.6,29.0,54.6,45.6,1],[51.0,58.4,55.0,59.8,1],[58.0,101.2,68.0,106.2,1],[56.6,137.0,63.0,142.0,1]],atk:[{"u":21.0,"v":70.0},{"u":11.0,"v":70.0},{"u":16.0,"v":78.0},{"u":21.0,"v":88.0},{"u":11.0,"v":88.0}],def:[{"u":151.0,"v":78.0},{"u":144.0,"v":86.0},{"u":137.0,"v":78.0},{"u":130.0,"v":86.0},{"u":124.0,"v":78.0}],sites:[{"u":101.7,"v":153.7},{"u":104.5,"v":32.6}],mid:{"u":80.0,"v":80.0}};
 function arLayout(seed){
   const th=THEMES[0],R=[];
   const wall=(u0,v0,u1,v1)=>R.push({u0,v0,u1,v1,h:8,k:'wall'});
   wall(-2,-2,AW+2,0);wall(-2,AH,AW+2,AH+2);wall(-2,0,0,AH);wall(AW,0,AW+2,AH);
   for(const w of NEWRO.W)wall(w[0],w[1],w[2],w[3]);
-  NEWRO.C.forEach((c,i)=>R.push({u0:c[0]-c[2]/2,v0:c[1]-c[2]/2,u1:c[0]+c[2]/2,v1:c[1]+c[2]/2,h:c[3],c:th.props[i%th.props.length],k:'crate'}));
+  NEWRO.C.forEach((c,i)=>R.push({u0:c[0],v0:c[1],u1:c[2],v1:c[3],h:c[4],c:th.props[i%th.props.length],k:'crate'}));
   const cp=a=>a.map(p=>({u:p.u,v:p.v}));
-  return {th,T:0,R,atk:cp(NEWRO.atk),def:cp(NEWRO.def),sites:cp(NEWRO.sites),mid:{u:NEWRO.mid.u,v:NEWRO.mid.v},LW:26};
+  return {th,T:0,R,B:NEWRO.B,atk:cp(NEWRO.atk),def:cp(NEWRO.def),sites:cp(NEWRO.sites),mid:{u:NEWRO.mid.u,v:NEWRO.mid.v},LW:26};
 }
 function arConnected(L){return true;}
 // @@pure-end
@@ -2656,6 +2627,12 @@ function buildArena(seed){
     lt.rotation.x=-PI/2;lt.position.set(X(s.u),.09,Z(s.v));scene.add(lt);A.meshes.push(lt);
     add(mesh(G.box,new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:.55}),X(s.u),9,Z(s.v),.5,18,.5));
   });
+  // buy-phase barrier lines (floor markers: teal = defender side, red = attacker side)
+  for(const s of (L.B||[]))add(mesh(G.box,new THREE.MeshBasicMaterial({color:s[4]?0xff4655:0x3de0c8}),X((s[0]+s[2])/2),.04,Z((s[1]+s[3])/2),Math.max(s[2]-s[0],.5),.08,Math.max(s[3]-s[1],.5)));
+  // buy-phase barrier lines (floor markers: teal = defender side, red = attacker side)
+  for(const s of (L.B||[]))add(mesh(G.box,new THREE.MeshBasicMaterial({color:s[4]?0xff4655:0x3de0c8}),X((s[0]+s[2])/2),.04,Z((s[1]+s[3])/2),Math.max(s[2]-s[0],.5),.08,Math.max(s[3]-s[1],.5)));
+  // buy-phase barrier lines (floor markers: teal = defender side, red = attacker side)
+  for(const s of (L.B||[]))add(mesh(G.box,new THREE.MeshBasicMaterial({color:s[4]?0xff4655:0x3de0c8}),X((s[0]+s[2])/2),.04,Z((s[1]+s[3])/2),Math.max(s[2]-s[0],.5),.08,Math.max(s[3]-s[1],.5)));
   // spawn pads
   for(const [pts,col] of [[L.atk,0xd9503f],[L.def,0x4b8fd9]])for(const p of pts)add(mesh(G.box,mat(hexs(shade(col,.7))),X(p.u),.025,Z(p.v),2.4,.05,2.4));
   A.atk=L.atk.map(p=>({x:X(p.u),z:Z(p.v),yaw:-PI/2}));A.def=L.def.map(p=>({x:X(p.u),z:Z(p.v),yaw:PI/2}));
@@ -2664,7 +2641,7 @@ function buildArena(seed){
   // nav graph for bots
   if(!AR.kNodes)AR.kNodes=NODES.slice();
   NODES.length=0;const grd=new Map();
-  for(let iu=0;iu<37;iu++)for(let iv=0;iv<25;iv++){const x=X(2+iu*4),z=Z(2+iv*4);if(boxHit(x,z,1.0,0))continue;const n=addNode(x,z);n.i=NODES.length-1;grd.set(iu*100+iv,n);}
+  for(let iu=0;iu<((AW-2)/4|0);iu++)for(let iv=0;iv<((AH-2)/4|0);iv++){const x=X(2+iu*4),z=Z(2+iv*4);if(boxHit(x,z,1.0,0))continue;const n=addNode(x,z);n.i=NODES.length-1;grd.set(iu*100+iv,n);}
   for(const [k,n] of grd){const iu=(k/100)|0,iv=k%100;
     for(const [du,dv] of [[1,0],[0,1],[1,1],[1,-1]]){const m=grd.get((iu+du)*100+iv+dv);if(!m)continue;if(boxHit((n.x+m.x)/2,(n.z+m.z)/2,.9,0))continue;n.adj.push(m);m.adj.push(n);}}
   const gp=[A.siteA,A.siteB,{x:X(L.mid.u),z:Z(L.mid.v)},A.atk[2],A.def[2]];
